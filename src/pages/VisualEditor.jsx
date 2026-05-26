@@ -516,20 +516,29 @@ export default function VisualEditor({ user }) {
         {data.sections.map(section => (
           <section key={section.id} id={section.id} className="section">
             
+            {isEditing && (
+              <div style={{
+                position: 'sticky', top: '100px', float: 'right', zIndex: 50,
+                display: 'flex', flexDirection: 'column', gap: '10px',
+                background: 'rgba(255,255,255,0.95)', border: '1px solid #eaeaea',
+                padding: '12px 10px', borderRadius: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+                marginRight: '-10px', marginTop: '0px'
+              }}>
+                <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 'bold', textAlign: 'center', writingMode: 'vertical-rl', alignSelf: 'center', marginBottom: '5px', letterSpacing: '2px' }}>新增至此</span>
+                <div title="新增畫作" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'image')}><FaImage size={18} /></div>
+                <div title="新增文章" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'text')}><FaAlignLeft size={18} /></div>
+                <div title="新增連結" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'link')}><FaLink size={18} /></div>
+              </div>
+            )}
+
             {isEditing ? (
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px', gap: '15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
                 <input 
                   className="inline-input section-title" 
                   style={{ margin: 0, width: 'auto' }}
                   value={section.title} 
                   onChange={e => handleSectionTitleChange(section.id, e.target.value)} 
                 />
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-color)', border: '1px solid var(--border-color)', padding: '4px 12px', borderRadius: '20px' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'bold', marginRight: '4px' }}>新增:</span>
-                  <div title="新增畫作" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'image')}><FaImage size={15} /></div>
-                  <div title="新增文章" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'text')}><FaAlignLeft size={15} /></div>
-                  <div title="新增連結" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'link')}><FaLink size={15} /></div>
-                </div>
               </div>
             ) : (
               <h2 className="section-title">{section.title}</h2>
