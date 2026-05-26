@@ -466,10 +466,10 @@ export default function VisualEditor({ user }) {
   return (
     <div className="app-wrapper">
       {data.profile.bgImageUrl && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1,
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1,
           backgroundImage: `url(${data.profile.bgImageUrl})`,
-          backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
+          backgroundSize: 'cover', backgroundPosition: 'center',
           opacity: data.profile.bgOpacity ?? 0.1
         }} />
       )}
@@ -617,7 +617,7 @@ export default function VisualEditor({ user }) {
           ))}
         </ul>
 
-        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666' }}>
+        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666', width: '100%', boxSizing: 'border-box' }}>
           {isEditing ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -631,9 +631,9 @@ export default function VisualEditor({ user }) {
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBgImageUpload} />
                 </label>
                 {data.profile.bgImageUrl && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', width: '100%' }}>
                     <span style={{ whiteSpace: 'nowrap' }}>透明度</span>
-                    <input type="range" min="0.05" max="1" step="0.05" value={data.profile.bgOpacity ?? 0.1} onChange={e => handleProfileChange('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1 }} />
+                    <input type="range" min="0.05" max="1" step="0.05" value={data.profile.bgOpacity ?? 0.1} onChange={e => handleProfileChange('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1, minWidth: 0 }} />
                   </div>
                 )}
               </div>
