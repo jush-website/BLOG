@@ -530,14 +530,14 @@ export default function VisualEditor({ user }) {
             <Responsive
               className="layout"
               width={mainWidth || 1200}
-              layouts={{ lg: getAutoLayout(section.items) }}
+              layouts={{ lg: getAutoLayout(section.items).map(l => ({ ...l, static: !(isEditing && isDragMode), isDraggable: !!(isEditing && isDragMode), isResizable: !!(isEditing && isDragMode) })) }}
               breakpoints={{lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0}}
               cols={{lg: 3, md: 3, sm: 2, xs: 1, xxs: 1}}
               rowHeight={150}
               margin={[30, 40]}
               onLayoutChange={(currentLayout) => handleLayoutChange(section.id, currentLayout)}
-              isDraggable={isEditing && isDragMode}
-              isResizable={isEditing && isDragMode}
+              isDraggable={!!(isEditing && isDragMode)}
+              isResizable={!!(isEditing && isDragMode)}
               useCSSTransforms={true}
               draggableHandle=".drag-handle"
             >
