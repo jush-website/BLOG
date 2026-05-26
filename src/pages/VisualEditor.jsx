@@ -16,6 +16,7 @@ const defaultData = {
     avatarUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=200&auto=format&fit=crop",
     phone: "",
     email: "",
+    bio: "",
     bgImageUrl: "",
     bgOpacity: 0.1
   },
@@ -411,9 +412,25 @@ export default function VisualEditor({ user }) {
         </div>
         
         {isEditing ? (
-          <input className="inline-input sidebar-name" value={data.profile.name} onChange={e => handleProfileChange('name', e.target.value)} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <input className="inline-input sidebar-name" style={{ marginBottom: '15px' }} value={data.profile.name} onChange={e => handleProfileChange('name', e.target.value)} />
+            <textarea 
+              className="inline-input" 
+              style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', resize: 'vertical', minHeight: '60px', padding: '8px', lineHeight: '1.4' }} 
+              placeholder="寫一段簡短的自我介紹..." 
+              value={data.profile.bio || ''} 
+              onChange={e => handleProfileChange('bio', e.target.value)} 
+            />
+          </div>
         ) : (
-          <h1 className="sidebar-name">{data.profile.name}</h1>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <h1 className="sidebar-name" style={{ marginBottom: data.profile.bio ? '15px' : '40px' }}>{data.profile.name}</h1>
+            {data.profile.bio && (
+              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', lineHeight: '1.6', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+                {data.profile.bio}
+              </p>
+            )}
+          </div>
         )}
 
         <ul className="nav-menu">
