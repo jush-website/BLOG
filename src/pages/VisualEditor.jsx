@@ -112,6 +112,20 @@ export default function VisualEditor({ user }) {
     return () => observer.disconnect();
   }, [loading, data.sections]);
 
+  // Handle scroll to bottom to force selecting the last section
+  useEffect(() => {
+    if (loading) return;
+    const handleScroll = () => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) {
+        if (data.sections.length > 0) {
+          setActiveSectionId(data.sections[data.sections.length - 1].id);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, data.sections]);
+
   // Sync the toolbox dropdown with the active section on scroll
   useEffect(() => {
     if (activeSectionId) {
@@ -331,6 +345,20 @@ export default function VisualEditor({ user }) {
       ...prev,
       sections: [...prev.sections, { id: nanoid(4), title: "新分類", items: [] }]
     }));
+  };
+
+  const moveSection = (index, direction) => {
+    updateData(prev => {
+      const newSections = [...prev.sections];
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= newSections.length) return prev;
+      
+      const temp = newSections[index];
+      newSections[index] = newSections[targetIndex];
+      newSections[targetIndex] = temp;
+      
+      return { ...prev, sections: newSections };
+    });
   };
 
   const addItem = (sectionId, type) => {
@@ -608,17 +636,33 @@ export default function VisualEditor({ user }) {
       </aside>
 
       <main className="main-content" ref={mainRef}>
-        {data.sections.map(section => (
+        {data.sections.map((section, index) => (
           <section key={section.id} id={section.id} className="section">
             
             {isEditing ? (
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px', gap: '10px' }}>
                 <input 
                   className="inline-input section-title" 
                   style={{ margin: 0, width: 'auto' }}
                   value={section.title} 
                   onChange={e => handleSectionTitleChange(section.id, e.target.value)} 
                 />
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button 
+                    className="icon-btn" 
+                    style={{ width: '28px', height: '28px', opacity: index === 0 ? 0.3 : 1, cursor: index === 0 ? 'default' : 'pointer' }} 
+                    onClick={() => moveSection(index, -1)} 
+                    disabled={index === 0} 
+                    title="將分類往上移"
+                  >↑</button>
+                  <button 
+                    className="icon-btn" 
+                    style={{ width: '28px', height: '28px', opacity: index === data.sections.length - 1 ? 0.3 : 1, cursor: index === data.sections.length - 1 ? 'default' : 'pointer' }} 
+                    onClick={() => moveSection(index, 1)} 
+                    disabled={index === data.sections.length - 1} 
+                    title="將分類往下移"
+                  >↓</button>
+                </div>
               </div>
             ) : (
               <h2 className="section-title">{section.title}</h2>
