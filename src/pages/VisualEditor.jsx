@@ -547,7 +547,7 @@ export default function VisualEditor({ user }) {
             <select 
               value={selectedSectionToAdd || (data.sections.length > 0 ? data.sections[0].id : '')}
               onChange={(e) => setSelectedSectionToAdd(e.target.value)}
-              style={{ width: '100%', marginBottom: '10px', padding: '4px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ddd', maxWidth: '80px', textOverflow: 'ellipsis' }}
+              className="toolbox-select"
             >
               {data.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
             </select>
@@ -600,17 +600,21 @@ export default function VisualEditor({ user }) {
           </div>
         )}
 
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#999', letterSpacing: '2px' }}>分類選單</span>
+          {isEditing && (
+            <div className="icon-btn" onClick={addSection} title="新增分類" style={{ width: '28px', height: '28px', margin: 0, background: '#8a63d2', color: '#fff', border: 'none' }}>
+              <FaPlus size={12} />
+            </div>
+          )}
+        </div>
+
         <ul className="nav-menu">
           {data.sections.map(sec => (
             <li key={sec.id} className="nav-item">
               <a href={`#${sec.id}`} onClick={() => setActiveSectionId(sec.id)}>{sec.title}</a>
             </li>
           ))}
-          {isEditing && (
-            <li className="nav-item" onClick={addSection} style={{ color: '#aaa', marginTop: '20px' }}>
-              <FaPlus size={12} /> 新增分類
-            </li>
-          )}
         </ul>
 
         <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666' }}>

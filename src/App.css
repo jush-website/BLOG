@@ -374,16 +374,18 @@ a {
   }
   
   .toolbox-wrapper {
-    right: auto !important;
-    left: 50%;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
     top: auto !important;
-    bottom: 20px;
-    transform: translateX(-50%) !important;
+    bottom: 0 !important;
+    transform: none !important;
     flex-direction: column-reverse !important;
+    padding: 0 !important;
   }
   
   .toolbox-toggle-btn {
-    right: auto !important;
+    right: 20px !important;
     bottom: var(--toggle-bottom) !important;
     transform: rotate(-90deg);
   }
@@ -391,7 +393,19 @@ a {
   .toolbox-panel {
     flex-direction: row !important;
     padding: 10px 15px !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    box-sizing: border-box !important;
+    justify-content: space-between !important;
     transform: var(--panel-transform-mobile) !important;
+    border: none !important;
+    border-top: 1px solid #ddd !important;
+  }
+  
+  .toolbox-select {
+    max-width: 150px !important; /* Wider on mobile */
+    margin-bottom: 0 !important;
+    margin-right: 10px !important;
   }
   
   .toolbox-actions {
@@ -399,7 +413,7 @@ a {
   }
   
   .toolbox-label {
-    writing-mode: vertical-rl;
+    writing-mode: horizontal-tb !important; /* Horizontal on mobile */
     margin-right: 5px;
     margin-bottom: 0 !important;
   }
@@ -441,6 +455,17 @@ a {
   pointer-events: var(--panel-events);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+}
+
+.toolbox-select {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 4px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  max-width: 80px;
+  text-overflow: ellipsis;
 }
 
 .toolbox-actions {
