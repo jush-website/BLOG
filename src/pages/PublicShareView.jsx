@@ -46,19 +46,22 @@ export default function PublicShareView() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const slugDoc = await getDoc(doc(db, 'slugs', slug));
-        if (!slugDoc.exists()) {
-          setError('糟糕！找不到此網頁。這可能是一個無效的網址。');
-          setLoading(false);
-          return;
+        let uid = slug;
+        let userDoc = await getDoc(doc(db, 'users', uid));
+
+        if (!userDoc.exists()) {
+          // Fallback to check if it's an old short slug
+          const slugDoc = await getDoc(doc(db, 'slugs', slug));
+          if (slugDoc.exists()) {
+            uid = slugDoc.data().uid;
+            userDoc = await getDoc(doc(db, 'users', uid));
+          }
         }
-        
-        const uid = slugDoc.data().uid;
-        const userDoc = await getDoc(doc(db, 'users', uid));
+
         if (userDoc.exists()) {
           setData(userDoc.data());
         } else {
-          setError('網頁資料已遺失。');
+          setError('糟糕！找不到此網頁。這可能是一個無效的網址。');
         }
       } catch (err) {
         setError('系統發生錯誤: ' + err.message);
@@ -89,9 +92,24 @@ export default function PublicShareView() {
 
   return (
     <div className="app-wrapper">
+      {data.profile.bgImageUrl && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1,
+          backgroundImage: `url(${data.profile.bgImageUrl})`,
+          backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
+          opacity: data.profile.bgOpacity ?? 0.1
+        }} />
+      )}
       <aside className="sidebar">
         <img src={data.profile.avatarUrl} alt="Logo" className="sidebar-logo" />
-        <h1 className="sidebar-name">{data.profile.name}</h1>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <h1 className="sidebar-name" style={{ marginBottom: data.profile.bio ? '15px' : '40px' }}>{data.profile.name}</h1>
+          {data.profile.bio && (
+            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', lineHeight: '1.6', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+              {data.profile.bio}
+            </p>
+          )}
+        </div>
 
         <ul className="nav-menu">
           {data.sections.map(sec => (

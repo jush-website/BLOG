@@ -106,18 +106,16 @@ export default function VisualEditor({ user }) {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           let dbData = docSnap.data();
-          // 如果是舊帳號，還沒有 slug，幫他生成一個並立即存檔
-          if (!dbData.slug) {
-            dbData.slug = nanoid(6);
-            await setDoc(docRef, dbData, { merge: true });
-            await setDoc(doc(db, 'slugs', dbData.slug), { uid: user.uid });
+          // 強制更新 slug 為固定 UID
+          if (dbData.slug !== user.uid) {
+            dbData.slug = user.uid;
+            await setDoc(docRef, { slug: user.uid }, { merge: true });
           }
           setData(dbData);
         } else {
-          // 全新帳號初始化
-          const newData = { ...defaultData, slug: nanoid(6) };
+          // 全新帳號初始化，使用 uid 作為固定 slug
+          const newData = { ...defaultData, slug: user.uid };
           await setDoc(docRef, newData);
-          await setDoc(doc(db, 'slugs', newData.slug), { uid: user.uid });
           setData(newData);
         }
       } catch (error) {
@@ -348,7 +346,6 @@ export default function VisualEditor({ user }) {
     setSaving(true);
     try {
       await setDoc(doc(db, 'users', user.uid), data);
-      await setDoc(doc(db, 'slugs', data.slug), { uid: user.uid });
       showToast("儲存成功！");
     } catch (error) {
       showToast("儲存失敗: " + error.message);
@@ -358,7 +355,7 @@ export default function VisualEditor({ user }) {
   };
 
   const copyShareLink = () => {
-    const url = `${window.location.origin}/p/${data.slug}`;
+    const url = `${window.location.origin}/p/${user.uid}`;
     navigator.clipboard.writeText(url);
     showToast(`已複製專屬連結！`);
   };
