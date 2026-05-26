@@ -4,7 +4,7 @@ import { signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { nanoid } from 'nanoid';
-import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt } from 'react-icons/fa';
 import { Responsive } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -58,6 +58,7 @@ export default function VisualEditor({ user }) {
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [toast, setToast] = useState('');
   const [isToolboxOpen, setIsToolboxOpen] = useState(false);
+  const [isDragMode, setIsDragMode] = useState(false);
   
   const mainRef = useRef(null);
   const [mainWidth, setMainWidth] = useState(1200);
@@ -361,6 +362,10 @@ export default function VisualEditor({ user }) {
         {isEditing ? (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+              <div title={isDragMode ? "關閉排版模式" : "開啟排版模式"} className="login-icon" onClick={() => setIsDragMode(!isDragMode)} style={{ background: isDragMode ? '#4CAF50' : '#fff', color: isDragMode ? '#fff' : '#222' }}><FaArrowsAlt /></div>
+              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>排版</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <div title="複製公開分享連結" className="login-icon" onClick={copyShareLink} style={{ color: '#222' }}><FaShareAlt /></div>
               <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>分享</span>
             </div>
@@ -531,8 +536,8 @@ export default function VisualEditor({ user }) {
               rowHeight={150}
               margin={[30, 40]}
               onLayoutChange={(currentLayout) => handleLayoutChange(section.id, currentLayout)}
-              isDraggable={isEditing}
-              isResizable={isEditing}
+              isDraggable={isEditing && isDragMode}
+              isResizable={isEditing && isDragMode}
               useCSSTransforms={true}
               draggableHandle=".drag-handle"
             >
@@ -543,7 +548,7 @@ export default function VisualEditor({ user }) {
                 return (
                   <div key={item.id} className={`card`} style={{ height: '100%' }}>
                     {/* Drag Handle & Size Selector (Editor Only) */}
-                    {isEditing && (
+                    {isEditing && isDragMode && (
                       <div className="size-selector drag-handle" style={{ cursor: 'grab', display: 'flex', alignItems: 'center' }}>
                         <div style={{ padding: '0 8px', color: '#ccc' }}><FaGripVertical /></div>
                         <button className={`size-btn ${itemSize === 'small' ? 'active' : ''}`} onMouseDown={e => e.stopPropagation()} onClick={() => {
