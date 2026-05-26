@@ -105,12 +105,19 @@ export default function VisualEditor({ user }) {
           setActiveSectionId(entry.target.id);
         }
       });
-    }, { rootMargin: '-30% 0px -60% 0px' });
+    }, { rootMargin: '-20% 0px -50% 0px' });
     
     const sections = document.querySelectorAll('.section');
     sections.forEach(sec => observer.observe(sec));
     return () => observer.disconnect();
   }, [loading, data.sections]);
+
+  // Sync the toolbox dropdown with the active section on scroll
+  useEffect(() => {
+    if (activeSectionId) {
+      setSelectedSectionToAdd(activeSectionId);
+    }
+  }, [activeSectionId]);
 
   useEffect(() => {
     if (!user) {
@@ -502,7 +509,7 @@ export default function VisualEditor({ user }) {
             <div className="toolbox-label" style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', marginBottom: '8px' }}>新增項目至</div>
             
             <select 
-              value={selectedSectionToAdd || activeSectionId || (data.sections.length > 0 ? data.sections[0].id : '')}
+              value={selectedSectionToAdd || (data.sections.length > 0 ? data.sections[0].id : '')}
               onChange={(e) => setSelectedSectionToAdd(e.target.value)}
               style={{ width: '100%', marginBottom: '10px', padding: '4px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ddd', maxWidth: '80px', textOverflow: 'ellipsis' }}
             >
