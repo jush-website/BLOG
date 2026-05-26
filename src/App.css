@@ -394,6 +394,10 @@ a {
     transform: var(--panel-transform-mobile) !important;
   }
   
+  .toolbox-actions {
+    flex-direction: row !important;
+  }
+  
   .toolbox-label {
     writing-mode: vertical-rl;
     margin-right: 5px;
@@ -437,6 +441,12 @@ a {
   pointer-events: var(--panel-events);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+}
+
+.toolbox-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .toolbox-panel .icon-btn {

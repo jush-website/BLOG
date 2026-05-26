@@ -552,7 +552,7 @@ export default function VisualEditor({ user }) {
               {data.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
             </select>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="toolbox-actions">
               <div className="icon-btn" onClick={() => handleAddItemGlobal('image')} title="新增畫作">
                 <FaImage size={18} style={{ marginBottom: '2px' }} />
               </div>
