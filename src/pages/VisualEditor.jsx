@@ -234,10 +234,39 @@ export default function VisualEditor({ user }) {
     reader.readAsDataURL(file);
   };
 
-  const handleItemImageUpload = async (sectionId, itemId, e) => {
+  const handleItemImageUpload = (sectionId, itemId, e) => {
     if (!user) return;
-    const url = await uploadImage(e.target.files[0], `item_${itemId}`);
-    if (url) handleItemChange(sectionId, itemId, 'imageUrl', url);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 1200; // Smaller limit for card images
+        
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const base64String = canvas.toDataURL('image/jpeg', 0.7);
+        handleItemChange(sectionId, itemId, 'imageUrl', base64String);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const addSection = () => {
