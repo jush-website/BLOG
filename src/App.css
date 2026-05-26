@@ -48,11 +48,24 @@ a {
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 60px 20px; /* Reduced side padding */
+  padding: 30px 20px; /* Reduced vertical padding */
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   background-color: #ffffff;
+  overflow-y: auto;
+}
+
+/* Custom sleek scrollbar for sidebar */
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 4px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 
 .sidebar-logo {
@@ -79,21 +92,6 @@ a {
 .nav-menu {
   list-style: none;
   flex-grow: 1;
-  overflow-y: auto;
-  min-height: 0; /* Critical for flex child to scroll instead of pushing footer off-screen */
-  padding-right: 10px; /* Space for scrollbar */
-}
-
-/* Custom sleek scrollbar for nav-menu */
-.nav-menu::-webkit-scrollbar {
-  width: 4px;
-}
-.nav-menu::-webkit-scrollbar-thumb {
-  background-color: #ddd;
-  border-radius: 4px;
-}
-.nav-menu::-webkit-scrollbar-track {
-  background-color: transparent;
 }
 
 .nav-item {
