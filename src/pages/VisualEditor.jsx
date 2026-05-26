@@ -476,6 +476,13 @@ export default function VisualEditor({ user }) {
       
       {toast && <div className="toast-overlay">{toast}</div>}
       
+      {saving && (
+        <div className="loading-container" style={{ position: 'fixed', zIndex: 9999, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(4px)' }}>
+          <div className="spinner"></div>
+          <div className="loading-text" style={{ marginTop: '15px', color: '#333', fontWeight: 'bold', letterSpacing: '1px' }}>資料儲存中，請稍候...</div>
+        </div>
+      )}
+      
       <div className="top-right-auth" style={{ display: 'flex', gap: '15px' }}>
         {isEditing ? (
           <>
@@ -488,10 +495,10 @@ export default function VisualEditor({ user }) {
               <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>分享</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <div title="儲存變更" className="login-icon" onClick={saveChanges} style={{ background: saving ? '#eee' : '#fff', color: saving ? '#ccc' : '#4CAF50' }}>
-                <i className="fa fa-save"></i> 💾
+              <div title="儲存變更" className="login-icon" onClick={saving ? null : saveChanges} style={{ background: saving ? '#f5f5f5' : '#fff', color: saving ? '#ccc' : '#4CAF50', cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease' }}>
+                {saving ? <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', borderTopColor: '#aaa' }}></div> : <span>💾</span>}
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>儲存</span>
+              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>{saving ? '儲存中...' : '儲存'}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
               <div title="登出" className="login-icon" onClick={handleLogout} style={{ color: '#222' }}><FaSignOutAlt /></div>
