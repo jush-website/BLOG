@@ -83,7 +83,8 @@ export default function VisualEditor({ user }) {
 
   useEffect(() => {
     if (!loading && mainRef.current) {
-      setMainWidth(mainRef.current.offsetWidth);
+      // 確保初始寬度扣除左右各 50px 的 padding
+      setMainWidth(mainRef.current.clientWidth - 100);
       const observer = new ResizeObserver(entries => {
         if (entries[0]) setMainWidth(entries[0].contentRect.width);
       });
@@ -698,11 +699,11 @@ export default function VisualEditor({ user }) {
                         }}>S</button>
                         <button className={`size-btn ${itemSize === 'medium' ? 'active' : ''}`} onMouseDown={e => e.stopPropagation()} onClick={() => {
                           handleItemChange(section.id, item.id, 'size', 'medium');
-                          if(item.gridLayout) handleItemChange(section.id, item.id, 'gridLayout', {...item.gridLayout, w: 2});
+                          if(item.gridLayout) handleItemChange(section.id, item.id, 'gridLayout', {...item.gridLayout, w: 2, x: item.gridLayout.x + 2 > 3 ? 1 : item.gridLayout.x});
                         }}>M</button>
                         <button className={`size-btn ${itemSize === 'large' ? 'active' : ''}`} onMouseDown={e => e.stopPropagation()} onClick={() => {
                           handleItemChange(section.id, item.id, 'size', 'large');
-                          if(item.gridLayout) handleItemChange(section.id, item.id, 'gridLayout', {...item.gridLayout, w: 3});
+                          if(item.gridLayout) handleItemChange(section.id, item.id, 'gridLayout', {...item.gridLayout, w: 3, x: 0});
                         }}>L</button>
                       </div>
                     )}
