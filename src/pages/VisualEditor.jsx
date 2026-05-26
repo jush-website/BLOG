@@ -58,8 +58,27 @@ export default function VisualEditor({ user }) {
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [toast, setToast] = useState('');
   const [isDragMode, setIsDragMode] = useState(false);
-  
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isToolboxOpen, setIsToolboxOpen] = useState(false);
+  const [selectedSectionToAdd, setSelectedSectionToAdd] = useState('');
+
   const mainRef = useRef(null);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const updateData = (updater) => {
+    setData(updater);
+    setHasUnsavedChanges(true);
+  };
   const [mainWidth, setMainWidth] = useState(1200);
 
   useEffect(() => {
@@ -130,21 +149,26 @@ export default function VisualEditor({ user }) {
     try { await signInWithPopup(auth, provider); } 
     catch (error) { alert("登入失敗: " + error.message); }
   };
-  const handleLogout = async () => { await signOut(auth); };
+  const handleLogout = async () => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm("您有未儲存的變更！確定要直接登出嗎？未儲存的內容將會遺失。")) return;
+    }
+    await signOut(auth);
+  };
 
   const handleProfileChange = (field, value) => {
-    setData(prev => ({ ...prev, profile: { ...prev.profile, [field]: value } }));
+    updateData(prev => ({ ...prev, profile: { ...prev.profile, [field]: value } }));
   };
 
   const handleSectionTitleChange = (sectionId, value) => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => s.id === sectionId ? { ...s, title: value } : s)
     }));
   };
 
   const handleLayoutChange = (sectionId, layout) => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => {
         if (s.id !== sectionId) return s;
@@ -154,7 +178,6 @@ export default function VisualEditor({ user }) {
             const itemLayout = layout.find(l => l.i === item.id);
             if (itemLayout) {
               const newSize = itemLayout.w >= 3 ? 'large' : itemLayout.w === 2 ? 'medium' : 'small';
-              // 移除 undefined 欄位，因為 Firebase 不支援 undefined
               const cleanLayout = {};
               Object.keys(itemLayout).forEach(key => {
                 if (itemLayout[key] !== undefined) {
@@ -171,7 +194,7 @@ export default function VisualEditor({ user }) {
   };
 
   const handleItemChange = (sectionId, itemId, field, value) => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => {
         if (s.id !== sectionId) return s;
@@ -297,7 +320,7 @@ export default function VisualEditor({ user }) {
   };
 
   const addSection = () => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: [...prev.sections, { id: nanoid(4), title: "新分類", items: [] }]
     }));
@@ -314,7 +337,7 @@ export default function VisualEditor({ user }) {
       newItem = { id: nanoid(4), type: 'image', size: 'small', title: "新畫作標題", date: today, imageUrl: "" };
     }
       
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => {
         if (s.id !== sectionId) return s;
@@ -323,8 +346,18 @@ export default function VisualEditor({ user }) {
     }));
   };
 
+  const handleAddItemGlobal = (type) => {
+    const targetSectionId = selectedSectionToAdd || activeSectionId || (data.sections.length > 0 ? data.sections[0].id : null);
+    if (!targetSectionId) {
+      showToast('請先新增分類！');
+      return;
+    }
+    addItem(targetSectionId, type);
+    showToast(`已新增內容至所選分類！`);
+  };
+
   const removeItem = (sectionId, itemId) => {
-    setData(prev => ({
+    updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => s.id === sectionId ? { ...s, items: s.items.filter(i => i.id !== itemId) } : s)
     }));
@@ -332,7 +365,7 @@ export default function VisualEditor({ user }) {
 
   const moveItem = (sourceSectionId, targetSectionId, itemId) => {
     if (sourceSectionId === targetSectionId) return;
-    setData(prev => {
+    updateData(prev => {
       let itemToMove = null;
       // Remove from source
       const newSections = prev.sections.map(s => {
@@ -368,6 +401,7 @@ export default function VisualEditor({ user }) {
     setSaving(true);
     try {
       await setDoc(doc(db, 'users', user.uid), data);
+      setHasUnsavedChanges(false);
       showToast("儲存成功！");
     } catch (error) {
       showToast("儲存失敗: " + error.message);
@@ -435,6 +469,60 @@ export default function VisualEditor({ user }) {
           </div>
         )}
       </div>
+
+      {/* Global Add Item Toolbar (Collapsible & Mobile Responsive) */}
+      {isEditing && data.sections.length > 0 && (
+        <div 
+          className="toolbox-wrapper"
+          style={{
+            '--toggle-right': isToolboxOpen ? '75px' : '0',
+            '--toggle-bottom': isToolboxOpen ? '75px' : '0',
+            '--panel-opacity': isToolboxOpen ? 1 : 0,
+            '--panel-transform': isToolboxOpen ? 'translateX(0)' : 'translateX(50px)',
+            '--panel-transform-mobile': isToolboxOpen ? 'translateY(0)' : 'translateY(50px)',
+            '--panel-events': isToolboxOpen ? 'auto' : 'none'
+          }}
+        >
+          {/* Toggle Button */}
+          <div 
+             title={isToolboxOpen ? "收合新增選單" : "展開新增選單"}
+             className="icon-btn toolbox-toggle-btn" 
+             style={{ 
+               background: isToolboxOpen ? '#fff' : '#8a63d2', 
+               color: isToolboxOpen ? '#8a63d2' : '#fff', 
+               border: isToolboxOpen ? '1px solid #ddd' : 'none'
+             }}
+             onClick={() => setIsToolboxOpen(!isToolboxOpen)}
+          >
+            {isToolboxOpen ? <FaChevronRight size={16} /> : <FaPlus size={16} />}
+          </div>
+
+          {/* Toolbox Panel */}
+          <div className="toolbox-panel" style={{ alignItems: 'center' }}>
+            <div className="toolbox-label" style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', marginBottom: '8px' }}>新增項目至</div>
+            
+            <select 
+              value={selectedSectionToAdd || activeSectionId || (data.sections.length > 0 ? data.sections[0].id : '')}
+              onChange={(e) => setSelectedSectionToAdd(e.target.value)}
+              style={{ width: '100%', marginBottom: '10px', padding: '4px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ddd', maxWidth: '80px', textOverflow: 'ellipsis' }}
+            >
+              {data.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+            </select>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="icon-btn" onClick={() => handleAddItemGlobal('image')} title="新增畫作">
+                <FaImage size={18} style={{ marginBottom: '2px' }} />
+              </div>
+              <div className="icon-btn" onClick={() => handleAddItemGlobal('text')} title="新增文章">
+                <FaAlignLeft size={18} style={{ marginBottom: '2px' }} />
+              </div>
+              <div className="icon-btn" onClick={() => handleAddItemGlobal('link')} title="新增連結">
+                <FaLink size={18} style={{ marginBottom: '2px' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <aside className="sidebar">
         <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -516,21 +604,6 @@ export default function VisualEditor({ user }) {
         {data.sections.map(section => (
           <section key={section.id} id={section.id} className="section">
             
-            {isEditing && (
-              <div style={{
-                position: 'sticky', top: '100px', float: 'right', zIndex: 50,
-                display: 'flex', flexDirection: 'column', gap: '10px',
-                background: 'rgba(255,255,255,0.95)', border: '1px solid #eaeaea',
-                padding: '12px 10px', borderRadius: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
-                marginRight: '-10px', marginTop: '0px'
-              }}>
-                <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 'bold', textAlign: 'center', writingMode: 'vertical-rl', alignSelf: 'center', marginBottom: '5px', letterSpacing: '2px' }}>新增至此</span>
-                <div title="新增畫作" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'image')}><FaImage size={18} /></div>
-                <div title="新增文章" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'text')}><FaAlignLeft size={18} /></div>
-                <div title="新增連結" className="icon-btn" style={{ margin: 0, width: '40px', height: '40px' }} onClick={() => addItem(section.id, 'link')}><FaLink size={18} /></div>
-              </div>
-            )}
-
             {isEditing ? (
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
                 <input 
