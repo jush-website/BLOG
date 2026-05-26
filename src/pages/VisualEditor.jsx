@@ -4,7 +4,7 @@ import { signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { nanoid } from 'nanoid';
-import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt, FaShareSquare } from 'react-icons/fa';
 import { Responsive } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -57,7 +57,6 @@ export default function VisualEditor({ user }) {
   const [saving, setSaving] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [toast, setToast] = useState('');
-  const [isToolboxOpen, setIsToolboxOpen] = useState(false);
   const [isDragMode, setIsDragMode] = useState(false);
   
   const mainRef = useRef(null);
@@ -324,21 +323,44 @@ export default function VisualEditor({ user }) {
     }));
   };
 
-  const handleAddItemGlobal = (type) => {
-    const targetSectionId = activeSectionId || (data.sections.length > 0 ? data.sections[0].id : null);
-    if (!targetSectionId) {
-      showToast('請先新增分類！');
-      return;
-    }
-    addItem(targetSectionId, type);
-    showToast(`已新增內容！`);
-  };
-
   const removeItem = (sectionId, itemId) => {
     setData(prev => ({
       ...prev,
       sections: prev.sections.map(s => s.id === sectionId ? { ...s, items: s.items.filter(i => i.id !== itemId) } : s)
     }));
+  };
+
+  const moveItem = (sourceSectionId, targetSectionId, itemId) => {
+    if (sourceSectionId === targetSectionId) return;
+    setData(prev => {
+      let itemToMove = null;
+      // Remove from source
+      const newSections = prev.sections.map(s => {
+        if (s.id === sourceSectionId) {
+          itemToMove = s.items.find(i => i.id === itemId);
+          return { ...s, items: s.items.filter(i => i.id !== itemId) };
+        }
+        return s;
+      });
+
+      if (!itemToMove) return prev;
+
+      // Clean up layout to reset position
+      itemToMove = { ...itemToMove };
+      delete itemToMove.gridLayout;
+
+      // Add to target
+      return {
+        ...prev,
+        sections: newSections.map(s => {
+          if (s.id === targetSectionId) {
+            return { ...s, items: [...s.items, itemToMove] };
+          }
+          return s;
+        })
+      };
+    });
+    showToast('已成功移動項目！');
   };
 
   const saveChanges = async () => {
@@ -413,52 +435,6 @@ export default function VisualEditor({ user }) {
           </div>
         )}
       </div>
-
-      {/* Global Add Item Toolbar (Collapsible & Mobile Responsive) */}
-      {isEditing && data.sections.length > 0 && (
-        <div 
-          className="toolbox-wrapper"
-          style={{
-            '--toggle-right': isToolboxOpen ? '75px' : '0',
-            '--toggle-bottom': isToolboxOpen ? '75px' : '0',
-            '--panel-opacity': isToolboxOpen ? 1 : 0,
-            '--panel-transform': isToolboxOpen ? 'translateX(0)' : 'translateX(50px)',
-            '--panel-transform-mobile': isToolboxOpen ? 'translateY(0)' : 'translateY(50px)',
-            '--panel-events': isToolboxOpen ? 'auto' : 'none'
-          }}
-        >
-          {/* Toggle Button */}
-          <div 
-             title={isToolboxOpen ? "收合新增選單" : "展開新增選單"}
-             className="icon-btn toolbox-toggle-btn" 
-             style={{ 
-               background: isToolboxOpen ? '#fff' : '#8a63d2', 
-               color: isToolboxOpen ? '#8a63d2' : '#fff', 
-               border: isToolboxOpen ? '1px solid #ddd' : 'none'
-             }}
-             onClick={() => setIsToolboxOpen(!isToolboxOpen)}
-          >
-            {isToolboxOpen ? <FaChevronRight size={16} /> : <FaPlus size={16} />}
-          </div>
-
-          {/* Toolbox Panel */}
-          <div className="toolbox-panel">
-            <div className="toolbox-label" style={{ fontSize: '0.75rem', color: '#888', textAlign: 'center', fontWeight: 'bold', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>新增</div>
-            <div className="icon-btn" onClick={() => handleAddItemGlobal('image')}>
-              <FaImage size={18} style={{ marginBottom: '2px' }} />
-              <span style={{ fontSize: '0.6rem' }}>畫作</span>
-            </div>
-            <div className="icon-btn" onClick={() => handleAddItemGlobal('text')}>
-              <FaAlignLeft size={18} style={{ marginBottom: '2px' }} />
-              <span style={{ fontSize: '0.6rem' }}>文章</span>
-            </div>
-            <div className="icon-btn" onClick={() => handleAddItemGlobal('link')}>
-              <FaLink size={18} style={{ marginBottom: '2px' }} />
-              <span style={{ fontSize: '0.6rem' }}>連結</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       <aside className="sidebar">
         <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -541,13 +517,19 @@ export default function VisualEditor({ user }) {
           <section key={section.id} id={section.id} className="section">
             
             {isEditing ? (
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px', gap: '15px', flexWrap: 'wrap' }}>
                 <input 
                   className="inline-input section-title" 
                   style={{ margin: 0, width: 'auto' }}
                   value={section.title} 
                   onChange={e => handleSectionTitleChange(section.id, e.target.value)} 
                 />
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-color)', border: '1px solid var(--border-color)', padding: '4px 12px', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'bold', marginRight: '4px' }}>新增:</span>
+                  <div title="新增畫作" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'image')}><FaImage size={15} /></div>
+                  <div title="新增文章" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'text')}><FaAlignLeft size={15} /></div>
+                  <div title="新增連結" className="icon-btn" style={{ margin: 0, padding: '6px', background: 'transparent' }} onClick={() => addItem(section.id, 'link')}><FaLink size={15} /></div>
+                </div>
               </div>
             ) : (
               <h2 className="section-title">{section.title}</h2>
@@ -599,6 +581,26 @@ export default function VisualEditor({ user }) {
                         {isEditing && (
                           <div className="edit-overlay">
                             <label className="icon-btn" title="更換圖片"><FaImage size={14} /><input type="file" style={{ display: 'none' }} onChange={(e) => handleItemImageUpload(section.id, item.id, e)} /></label>
+                            {data.sections.length > 1 && (
+                              <div className="icon-btn" style={{ position: 'relative' }} title="移動至其他分類">
+                                <FaShareSquare size={14} />
+                                <select
+                                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      moveItem(section.id, e.target.value, item.id);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  value=""
+                                >
+                                  <option value="" disabled>移動至...</option>
+                                  {data.sections.filter(s => s.id !== section.id).map(s => (
+                                    <option key={s.id} value={s.id}>{s.title}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                             <div className="icon-btn" title="刪除項目" onClick={() => removeItem(section.id, item.id)}><FaTrash size={14} /></div>
                           </div>
                         )}
@@ -620,7 +622,27 @@ export default function VisualEditor({ user }) {
                         )}
                         {isEditing && (
                            <div className="edit-overlay" style={{ opacity: 0, transition: '0.2s', background: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>
-                              <div style={{ pointerEvents: 'auto', position: 'absolute', top: '10px', right: '10px' }}>
+                              <div style={{ pointerEvents: 'auto', position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '5px' }}>
+                                {data.sections.length > 1 && (
+                                  <div className="icon-btn" style={{ position: 'relative' }} title="移動至其他分類">
+                                    <FaShareSquare size={14} />
+                                    <select
+                                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          moveItem(section.id, e.target.value, item.id);
+                                          e.target.value = '';
+                                        }
+                                      }}
+                                      value=""
+                                    >
+                                      <option value="" disabled>移動至...</option>
+                                      {data.sections.filter(s => s.id !== section.id).map(s => (
+                                        <option key={s.id} value={s.id}>{s.title}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
                                 <div className="icon-btn" title="刪除項目" onClick={() => removeItem(section.id, item.id)}><FaTrash size={14} /></div>
                               </div>
                            </div>
