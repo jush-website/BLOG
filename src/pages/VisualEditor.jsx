@@ -74,7 +74,8 @@ const resizeToDataUrl = (file, maxDim, quality) =>
   });
 
 // The five top-right controls were five copies of the same 4-line block.
-function AuthAction({ label, title, onClick, active, disabled, children }) {
+function AuthAction({ label, title, onClick, active, disabled, danger, children }) {
+  const tint = danger ? 'var(--danger)' : 'var(--accent)';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
       <div
@@ -82,16 +83,16 @@ function AuthAction({ label, title, onClick, active, disabled, children }) {
         title={title}
         onClick={onClick}
         style={{
-          background: active ? 'var(--accent)' : undefined,
-          borderColor: active ? 'var(--accent)' : undefined,
-          color: active ? 'var(--accent-ink)' : undefined,
+          background: active ? tint : undefined,
+          borderColor: active || danger ? tint : undefined,
+          color: active ? 'var(--accent-ink)' : danger ? tint : undefined,
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.55 : 1,
         }}
       >
         {children}
       </div>
-      <span className="auth-label">{label}</span>
+      <span className="auth-label" style={{ color: danger ? 'var(--danger)' : undefined }}>{label}</span>
     </div>
   );
 }
@@ -130,6 +131,7 @@ export default function VisualEditor({ user }) {
   const docBytes = useMemo(() => new Blob([JSON.stringify(data)]).size, [data]);
   const docUsage = docBytes / FIRESTORE_DOC_LIMIT;
   const budgetLevel = docUsage > 0.9 ? 'over' : docUsage > 0.7 ? 'warn' : '';
+  const overBudget = docBytes > FIRESTORE_DOC_LIMIT;
 
   const showToast = (msg) => {
     setToast(msg);
@@ -450,7 +452,16 @@ export default function VisualEditor({ user }) {
           <>
             <AuthAction label="排版" title={isDragMode ? "關閉排版模式" : "開啟排版模式"} onClick={() => setIsDragMode(!isDragMode)} active={isDragMode}><FaArrowsAlt /></AuthAction>
             <AuthAction label="分享" title="複製公開分享連結" onClick={copyShareLink}><FaShareAlt /></AuthAction>
-            <AuthAction label={saving ? '儲存中' : '儲存'} title="儲存變更" onClick={saving ? undefined : saveChanges} disabled={saving}>
+            {/* An over-limit save is refused. Say so on the button itself: a toast that
+                lasts 2.5s is easy to miss, and the symptom (edits vanish on reload)
+                looks like the edit never applied. */}
+            <AuthAction
+              label={saving ? '儲存中' : overBudget ? '超量' : '儲存'}
+              title={overBudget ? `資料量 ${(docBytes / 1048576).toFixed(2)} MB 超過 1 MB 上限，無法儲存。請改用圖片網址，或刪除幾張圖片。` : '儲存變更'}
+              onClick={saving ? undefined : saveChanges}
+              disabled={saving}
+              danger={overBudget}
+            >
               {saving ? <div className="spinner" style={{ width: '16px', height: '16px', marginBottom: 0 }} /> : <FaSave />}
             </AuthAction>
             <AuthAction label="登出" title="登出" onClick={handleLogout}><FaSignOutAlt /></AuthAction>
