@@ -3,24 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Responsive } from 'react-grid-layout';
+import { getAutoLayout, useContainerWidth, BREAKPOINTS, GRID_COLS } from '../grid';
+import { toDirectImageUrl, safeHref } from '../urls';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-
-const getAutoLayout = (items) => {
-  let currentX = 0;
-  let currentY = 0;
-  return items.map((item) => {
-    if (item.gridLayout) return item.gridLayout;
-    const w = item.size === 'large' ? 3 : item.size === 'medium' ? 2 : 1;
-    if (currentX + w > 3) {
-      currentX = 0;
-      currentY += 2;
-    }
-    const layout = { i: item.id, x: currentX, y: currentY, w, h: 2 };
-    currentX += w;
-    return layout;
-  });
-};
 
 export default function PublicShareView() {
   const { slug } = useParams();
@@ -28,20 +14,9 @@ export default function PublicShareView() {
   const [error, setError] = useState('');
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  const mainRef = useRef(null);
-  const [mainWidth, setMainWidth] = useState(1200);
 
-  useEffect(() => {
-    if (!loading && mainRef.current) {
-      setMainWidth(mainRef.current.offsetWidth);
-      const observer = new ResizeObserver(entries => {
-        if (entries[0]) setMainWidth(entries[0].contentRect.width);
-      });
-      observer.observe(mainRef.current);
-      return () => observer.disconnect();
-    }
-  }, [loading]);
+  const mainRef = useRef(null);
+  const mainWidth = useContainerWidth(mainRef, !loading);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,45 +65,49 @@ export default function PublicShareView() {
     );
   }
 
+  // An older or half-written doc may be missing either field — don't white-screen on it.
+  const profile = data?.profile ?? {};
+  const sections = data?.sections ?? [];
+
   return (
     <div className="app-wrapper">
-      {data.profile.bgImageUrl && (
+      {profile.bgImageUrl && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1,
-          backgroundImage: `url(${data.profile.bgImageUrl})`,
+          backgroundImage: `url(${profile.bgImageUrl})`,
           backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
-          opacity: data.profile.bgOpacity ?? 0.1
+          opacity: profile.bgOpacity ?? 0.1
         }} />
       )}
       <aside className="sidebar">
-        <img src={data.profile.avatarUrl} alt="Logo" className="sidebar-logo" />
+        <img src={profile.avatarUrl} alt="Logo" className="sidebar-logo" />
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <h1 className="sidebar-name" style={{ marginBottom: data.profile.bio ? '15px' : '40px' }}>{data.profile.name}</h1>
-          {data.profile.bio && (
+          <h1 className="sidebar-name" style={{ marginBottom: profile.bio ? '15px' : '40px' }}>{profile.name}</h1>
+          {profile.bio && (
             <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', lineHeight: '1.6', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
-              {data.profile.bio}
+              {profile.bio}
             </p>
           )}
         </div>
 
         <ul className="nav-menu">
-          {data.sections.map(sec => (
-            <li key={sec.id} className="nav-item">
+          {sections.map(sec => (
+            <li key={sec.id} className={`nav-item${activeSectionId === sec.id ? ' active' : ''}`}>
               <a href={`#${sec.id}`} onClick={() => setActiveSectionId(sec.id)}>{sec.title}</a>
             </li>
           ))}
         </ul>
-        
+
         <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-            {data.profile.phone && <div>📞 {data.profile.phone}</div>}
-            {data.profile.email && <div>✉️ <a href={`mailto:${data.profile.email}`} style={{ textDecoration: 'underline' }}>{data.profile.email}</a></div>}
+            {profile.phone && <div>📞 {profile.phone}</div>}
+            {profile.email && <div>✉️ <a href={`mailto:${profile.email}`} style={{ textDecoration: 'underline' }}>{profile.email}</a></div>}
           </div>
         </div>
       </aside>
 
       <main className="main-content" ref={mainRef}>
-        {data.sections.map(section => (
+        {sections.map(section => (
           <section key={section.id} id={section.id} className="section">
             <h2 className="section-title">{section.title}</h2>
 
@@ -136,8 +115,8 @@ export default function PublicShareView() {
               className="layout"
               width={mainWidth || 1200}
               layouts={{ lg: getAutoLayout(section.items) }}
-              breakpoints={{lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0}}
-              cols={{lg: 3, md: 3, sm: 2, xs: 1, xxs: 1}}
+              breakpoints={BREAKPOINTS}
+              cols={GRID_COLS}
               rowHeight={150}
               margin={[30, 40]}
               isDraggable={false}
@@ -145,11 +124,13 @@ export default function PublicShareView() {
               useCSSTransforms={true}
             >
               {section.items.map(item => {
-                const itemSize = item.size || 'small';
                 const itemType = item.type || 'image';
 
-                const CardWrapper = (itemType === 'link' && item.url) ? 'a' : 'div';
-                const wrapperProps = (itemType === 'link' && item.url) ? { href: item.url, target: '_blank', rel: 'noopener noreferrer', style: { textDecoration: 'none', color: 'inherit' } } : {};
+                // This page is shared with strangers; never navigate to an owner-supplied
+                // `javascript:` or `data:` URL. safeHref returns '' for anything but http(s)/mailto.
+                const href = itemType === 'link' ? safeHref(item.url) : '';
+                const CardWrapper = href ? 'a' : 'div';
+                const wrapperProps = href ? { href, target: '_blank', rel: 'noopener noreferrer', style: { textDecoration: 'none', color: 'inherit' } } : {};
 
                 return (
                   <CardWrapper key={item.id} className={`card`} style={{ height: '100%' }} {...wrapperProps}>
@@ -158,7 +139,7 @@ export default function PublicShareView() {
                     {(itemType === 'image' || itemType === 'link') && (
                       <div className="card-image-wrapper">
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.title} className="card-image" />
+                          <img src={toDirectImageUrl(item.imageUrl)} alt={item.title} className="card-image" />
                         ) : (
                           <div className="card-image" style={{ background: '#eee' }} />
                         )}

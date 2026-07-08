@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, storage, provider } from '../firebase';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { auth, db, provider } from '../firebase';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { nanoid } from 'nanoid';
 import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt, FaShareSquare } from 'react-icons/fa';
 import { Responsive } from 'react-grid-layout';
+import { getAutoLayout, useContainerWidth, BREAKPOINTS, GRID_COLS, THREE_COL_MIN_WIDTH } from '../grid';
+import { toDirectImageUrl } from '../urls';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -34,22 +35,43 @@ const defaultData = {
   slug: ""
 };
 
-const getAutoLayout = (items) => {
-  let currentX = 0;
-  let currentY = 0;
-  return items.map((item) => {
-    if (item.gridLayout) return item.gridLayout;
-    
-    const w = item.size === 'large' ? 3 : item.size === 'medium' ? 2 : 1;
-    if (currentX + w > 3) {
-      currentX = 0;
-      currentY += 2;
-    }
-    const layout = { i: item.id, x: currentX, y: currentY, w, h: 2 };
-    currentX += w;
-    return layout;
-  });
+// ponytail: images live inline as base64 in the Firestore doc, which is capped at
+// 1 MiB. Firebase Storage would fix this but needs the Blaze plan (a credit card),
+// so instead we squeeze the bytes and surface the budget (see docBytes below).
+const FIRESTORE_DOC_LIMIT = 1048576; // 1 MiB, Firestore's hard per-document cap
+
+// Safari only learned to *encode* WebP recently; toDataURL silently falls back to
+// PNG when the type is unsupported, which would be far bigger than the JPEG.
+let webpSupported;
+const bestImageType = () => {
+  if (webpSupported === undefined) {
+    webpSupported = document
+      .createElement('canvas')
+      .toDataURL('image/webp')
+      .startsWith('data:image/webp');
+  }
+  return webpSupported ? 'image/webp' : 'image/jpeg';
 };
+
+const resizeToDataUrl = (file, maxDim, quality) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL(bestImageType(), quality));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('圖片讀取失敗'));
+    };
+    img.src = objectUrl;
+  });
 
 export default function VisualEditor({ user }) {
   const [data, setData] = useState(defaultData);
@@ -79,19 +101,11 @@ export default function VisualEditor({ user }) {
     setData(updater);
     setHasUnsavedChanges(true);
   };
-  const [mainWidth, setMainWidth] = useState(1200);
+  const mainWidth = useContainerWidth(mainRef, !loading);
 
-  useEffect(() => {
-    if (!loading && mainRef.current) {
-      // 確保初始寬度扣除左右各 50px 的 padding
-      setMainWidth(mainRef.current.clientWidth - 100);
-      const observer = new ResizeObserver(entries => {
-        if (entries[0]) setMainWidth(entries[0].contentRect.width);
-      });
-      observer.observe(mainRef.current);
-      return () => observer.disconnect();
-    }
-  }, [loading]);
+  // Close enough to what Firestore counts, and it's the number the user can act on.
+  const docBytes = useMemo(() => new Blob([JSON.stringify(data)]).size, [data]);
+  const docUsage = docBytes / FIRESTORE_DOC_LIMIT;
 
   const showToast = (msg) => {
     setToast(msg);
@@ -190,6 +204,12 @@ export default function VisualEditor({ user }) {
   };
 
   const handleLayoutChange = (sectionId, layout) => {
+    // Only persist a deliberate rearrangement. react-grid-layout also fires this on
+    // mount and on every breakpoint reflow — saving those marks the doc dirty on page
+    // load and overwrites the 3-col layout with the narrow-screen 1-col one.
+    // 996 = the `md` breakpoint; md and lg both have 3 cols, so either is safe to save.
+    if (!isDragMode || mainWidth < THREE_COL_MIN_WIDTH) return;
+
     updateData(prev => ({
       ...prev,
       sections: prev.sections.map(s => {
@@ -197,18 +217,13 @@ export default function VisualEditor({ user }) {
         return {
           ...s,
           items: s.items.map(item => {
-            const itemLayout = layout.find(l => l.i === item.id);
-            if (itemLayout) {
-              const newSize = itemLayout.w >= 3 ? 'large' : itemLayout.w === 2 ? 'medium' : 'small';
-              const cleanLayout = {};
-              Object.keys(itemLayout).forEach(key => {
-                if (itemLayout[key] !== undefined) {
-                  cleanLayout[key] = itemLayout[key];
-                }
-              });
-              return { ...item, gridLayout: cleanLayout, size: newSize };
-            }
-            return item;
+            const l = layout.find(entry => entry.i === item.id);
+            if (!l) return item;
+            return {
+              ...item,
+              gridLayout: { i: l.i, x: l.x, y: l.y, w: l.w, h: l.h },
+              size: l.w >= 3 ? 'large' : l.w === 2 ? 'medium' : 'small'
+            };
           })
         };
       })
@@ -228,117 +243,20 @@ export default function VisualEditor({ user }) {
     }));
   };
 
-  const uploadImage = async (file, pathRef) => {
-    if (!file) return null;
-    const storageRef = ref(storage, `uploads/${user.uid}/${pathRef}_${Date.now()}`);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+  // maxDim/quality are per-slot: avatars are tiny, backgrounds are the biggest thing on screen.
+  const pickImage = (e, maxDim, quality, apply) => {
+    const file = e.target.files[0];
+    e.target.value = ''; // otherwise re-selecting the same file fires no change event
+    if (!file || !user) return;
+    resizeToDataUrl(file, maxDim, quality).then(apply).catch(err => showToast(err.message));
   };
 
-  const handleProfileImageUpload = (e) => {
-    if (!user) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 400; // Small limit for avatar to save space
-        
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const base64String = canvas.toDataURL('image/jpeg', 0.8);
-        handleProfileChange('avatarUrl', base64String);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleBgImageUpload = (e) => {
-    if (!user) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 1600; // Limit max resolution to keep Base64 size small for Firestore
-        
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Compress to JPEG to save space
-        const base64String = canvas.toDataURL('image/jpeg', 0.6);
-        handleProfileChange('bgImageUrl', base64String);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleItemImageUpload = (sectionId, itemId, e) => {
-    if (!user) return;
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxDim = 1200; // Smaller limit for card images
-        
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const base64String = canvas.toDataURL('image/jpeg', 0.7);
-        handleItemChange(sectionId, itemId, 'imageUrl', base64String);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+  // A pasted URL costs ~60 bytes in Firestore instead of ~85KB of base64.
+  // ponytail: window.prompt keeps this out of the card layout entirely.
+  const pasteImageUrl = (current, apply) => {
+    const url = window.prompt('貼上圖片網址（支援 Google Drive 分享連結）：', current?.startsWith('data:') ? '' : current || '');
+    if (url === null) return; // cancelled
+    apply(url.trim());
   };
 
   const addSection = () => {
@@ -346,6 +264,15 @@ export default function VisualEditor({ user }) {
       ...prev,
       sections: [...prev.sections, { id: nanoid(4), title: "新分類", items: [] }]
     }));
+  };
+
+  const removeSection = (section) => {
+    const warning = section.items.length
+      ? `確定要刪除分類「${section.title}」嗎？其中的 ${section.items.length} 個項目也會一併刪除。`
+      : `確定要刪除分類「${section.title}」嗎？`;
+    if (!window.confirm(warning)) return;
+    updateData(prev => ({ ...prev, sections: prev.sections.filter(s => s.id !== section.id) }));
+    showToast('已刪除分類，記得儲存變更。');
   };
 
   const moveSection = (index, direction) => {
@@ -382,13 +309,16 @@ export default function VisualEditor({ user }) {
     }));
   };
 
+  // The dropdown can still hold a section the user just deleted — fall through to a live one.
+  const addTargetId = [selectedSectionToAdd, activeSectionId, data.sections[0]?.id]
+    .find(id => id && data.sections.some(s => s.id === id)) ?? '';
+
   const handleAddItemGlobal = (type) => {
-    const targetSectionId = selectedSectionToAdd || activeSectionId || (data.sections.length > 0 ? data.sections[0].id : null);
-    if (!targetSectionId) {
+    if (!addTargetId) {
       showToast('請先新增分類！');
       return;
     }
-    addItem(targetSectionId, type);
+    addItem(addTargetId, type);
     showToast(`已新增內容至所選分類！`);
   };
 
@@ -434,6 +364,14 @@ export default function VisualEditor({ user }) {
 
   const saveChanges = async () => {
     if (!user) return;
+
+    // Fail before the network round-trip, and say what to actually do about it —
+    // Firestore's own error here is an opaque INVALID_ARGUMENT.
+    if (docBytes > FIRESTORE_DOC_LIMIT) {
+      showToast(`資料量 ${(docBytes / 1048576).toFixed(2)} MB 已超過單筆 1 MB 上限，無法儲存。請刪除或更換幾張圖片後再試。`);
+      return;
+    }
+
     setSaving(true);
     try {
       await setDoc(doc(db, 'users', user.uid), data);
@@ -544,8 +482,8 @@ export default function VisualEditor({ user }) {
           <div className="toolbox-panel" style={{ alignItems: 'center' }}>
             <div className="toolbox-label" style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', marginBottom: '8px' }}>新增項目至</div>
             
-            <select 
-              value={selectedSectionToAdd || (data.sections.length > 0 ? data.sections[0].id : '')}
+            <select
+              value={addTargetId}
               onChange={(e) => setSelectedSectionToAdd(e.target.value)}
               className="toolbox-select"
             >
@@ -571,9 +509,10 @@ export default function VisualEditor({ user }) {
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <img src={data.profile.avatarUrl} alt="Logo" className="sidebar-logo" />
           {isEditing && (
-            <label className="icon-btn" style={{ position: 'absolute', bottom: '20px', right: '-10px' }}>
+            <label className="icon-btn" style={{ position: 'absolute', bottom: '20px', right: '-10px' }} title="更換頭像">
               <FaImage size={14} />
-              <input type="file" style={{ display: 'none' }} onChange={handleProfileImageUpload} />
+              {/* avatar renders ~100px; 256 covers retina */}
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => pickImage(e, 256, 0.8, url => handleProfileChange('avatarUrl', url))} />
             </label>
           )}
         </div>
@@ -611,7 +550,7 @@ export default function VisualEditor({ user }) {
 
         <ul className="nav-menu">
           {data.sections.map(sec => (
-            <li key={sec.id} className="nav-item">
+            <li key={sec.id} className={`nav-item${activeSectionId === sec.id ? ' active' : ''}`}>
               <a href={`#${sec.id}`} onClick={() => setActiveSectionId(sec.id)}>{sec.title}</a>
             </li>
           ))}
@@ -624,11 +563,34 @@ export default function VisualEditor({ user }) {
                 <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '4px' }} placeholder="聯絡電話" value={data.profile.phone || ''} onChange={e => handleProfileChange('phone', e.target.value)} />
                 <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '4px' }} placeholder="電子郵件" value={data.profile.email || ''} onChange={e => handleProfileChange('email', e.target.value)} />
               </div>
+              <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  <span>資料用量</span>
+                  <span style={{ color: docUsage > 0.9 ? '#d9534f' : docUsage > 0.7 ? '#e8a33d' : '#888', fontWeight: 'normal' }}>
+                    {(docBytes / 1048576).toFixed(2)} / 1.00 MB
+                  </span>
+                </div>
+                <div style={{ height: '5px', borderRadius: '3px', background: '#eee', overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${Math.min(100, docUsage * 100)}%`,
+                    height: '100%',
+                    background: docUsage > 0.9 ? '#d9534f' : docUsage > 0.7 ? '#e8a33d' : '#8a63d2',
+                    transition: 'width 0.3s'
+                  }} />
+                </div>
+                {docUsage > 0.9 && (
+                  <div style={{ fontSize: '0.72rem', color: '#d9534f', lineHeight: 1.4 }}>
+                    快到上限了，再上傳圖片將無法儲存。
+                  </div>
+                )}
+              </div>
+
               <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>網站背景</div>
                 <label className="icon-btn" style={{ width: '100%', height: '36px', borderRadius: '4px', fontSize: '0.8rem', margin: 0, border: '1px dashed #ccc' }}>
                   <FaImage style={{ marginRight: '5px' }} /> {data.profile.bgImageUrl ? "更換背景圖片" : "上傳背景圖片"}
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBgImageUpload} />
+                  {/* background sits behind opacity ~0.1, so detail is invisible anyway */}
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => pickImage(e, 1280, 0.5, url => handleProfileChange('bgImageUrl', url))} />
                 </label>
                 {data.profile.bgImageUrl && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', width: '100%' }}>
@@ -667,13 +629,19 @@ export default function VisualEditor({ user }) {
                     disabled={index === 0} 
                     title="將分類往上移"
                   >↑</button>
-                  <button 
-                    className="icon-btn" 
-                    style={{ width: '28px', height: '28px', opacity: index === data.sections.length - 1 ? 0.3 : 1, cursor: index === data.sections.length - 1 ? 'default' : 'pointer' }} 
-                    onClick={() => moveSection(index, 1)} 
-                    disabled={index === data.sections.length - 1} 
+                  <button
+                    className="icon-btn"
+                    style={{ width: '28px', height: '28px', opacity: index === data.sections.length - 1 ? 0.3 : 1, cursor: index === data.sections.length - 1 ? 'default' : 'pointer' }}
+                    onClick={() => moveSection(index, 1)}
+                    disabled={index === data.sections.length - 1}
                     title="將分類往下移"
                   >↓</button>
+                  <button
+                    className="icon-btn"
+                    style={{ width: '28px', height: '28px', color: '#d9534f' }}
+                    onClick={() => removeSection(section)}
+                    title="刪除分類"
+                  ><FaTrash size={12} /></button>
                 </div>
               </div>
             ) : (
@@ -684,8 +652,8 @@ export default function VisualEditor({ user }) {
               className="layout"
               width={mainWidth || 1200}
               layouts={{ lg: getAutoLayout(section.items).map(l => ({ ...l, static: !(isEditing && isDragMode), isDraggable: !!(isEditing && isDragMode), isResizable: !!(isEditing && isDragMode) })) }}
-              breakpoints={{lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0}}
-              cols={{lg: 3, md: 3, sm: 2, xs: 1, xxs: 1}}
+              breakpoints={BREAKPOINTS}
+              cols={GRID_COLS}
               rowHeight={150}
               margin={[30, 40]}
               onLayoutChange={(currentLayout) => handleLayoutChange(section.id, currentLayout)}
@@ -722,10 +690,14 @@ export default function VisualEditor({ user }) {
                     {/* Image or Link Block (Both have images) */}
                     {(itemType === 'image' || itemType === 'link') && (
                       <div className="card-image-wrapper">
-                        {item.imageUrl ? <img src={item.imageUrl} alt={item.title} className="card-image" /> : <div className="card-image" style={{ background: '#eee' }} />}
+                        {item.imageUrl ? <img src={toDirectImageUrl(item.imageUrl)} alt={item.title} className="card-image" /> : <div className="card-image" style={{ background: '#eee' }} />}
                         {isEditing && (
                           <div className="edit-overlay">
-                            <label className="icon-btn" title="更換圖片"><FaImage size={14} /><input type="file" style={{ display: 'none' }} onChange={(e) => handleItemImageUpload(section.id, item.id, e)} /></label>
+                            {/* Artwork keeps 1200px. Measured on a 1200x800 photo: old JPEG@0.7 = 115KB,
+                                WebP@0.75 = 85KB (-27%) at higher visual quality. Pushing q past ~0.78
+                                gives the bytes straight back — WebP@0.85 was 126KB, worse than the JPEG. */}
+                            <label className="icon-btn" title="上傳圖片檔"><FaImage size={14} /><input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => pickImage(e, 1200, 0.75, url => handleItemChange(section.id, item.id, 'imageUrl', url))} /></label>
+                            <div className="icon-btn" title="改用圖片網址（不佔用量）" onClick={() => pasteImageUrl(item.imageUrl, url => handleItemChange(section.id, item.id, 'imageUrl', url))}><FaLink size={14} /></div>
                             {data.sections.length > 1 && (
                               <div className="icon-btn" style={{ position: 'relative' }} title="移動至其他分類">
                                 <FaShareSquare size={14} />
@@ -766,30 +738,28 @@ export default function VisualEditor({ user }) {
                           <div className="card-text-content">{item.textContent}</div>
                         )}
                         {isEditing && (
-                           <div className="edit-overlay" style={{ opacity: 0, transition: '0.2s', background: 'rgba(255,255,255,0.4)', pointerEvents: 'none' }}>
-                              <div style={{ pointerEvents: 'auto', position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '5px' }}>
-                                {data.sections.length > 1 && (
-                                  <div className="icon-btn" style={{ position: 'relative' }} title="移動至其他分類">
-                                    <FaShareSquare size={14} />
-                                    <select
-                                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                                      onChange={(e) => {
-                                        if (e.target.value) {
-                                          moveItem(section.id, e.target.value, item.id);
-                                          e.target.value = '';
-                                        }
-                                      }}
-                                      value=""
-                                    >
-                                      <option value="" disabled>移動至...</option>
-                                      {data.sections.filter(s => s.id !== section.id).map(s => (
-                                        <option key={s.id} value={s.id}>{s.title}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                )}
-                                <div className="icon-btn" title="刪除項目" onClick={() => removeItem(section.id, item.id)}><FaTrash size={14} /></div>
-                              </div>
+                           <div className="edit-overlay edit-overlay-corner">
+                              {data.sections.length > 1 && (
+                                <div className="icon-btn" style={{ position: 'relative' }} title="移動至其他分類">
+                                  <FaShareSquare size={14} />
+                                  <select
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        moveItem(section.id, e.target.value, item.id);
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    value=""
+                                  >
+                                    <option value="" disabled>移動至...</option>
+                                    {data.sections.filter(s => s.id !== section.id).map(s => (
+                                      <option key={s.id} value={s.id}>{s.title}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                              <div className="icon-btn" title="刪除項目" onClick={() => removeItem(section.id, item.id)}><FaTrash size={14} /></div>
                            </div>
                         )}
                       </div>
