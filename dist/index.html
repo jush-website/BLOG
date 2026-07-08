@@ -6,23 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google" content="notranslate" />
     <title>我的作品集</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <style>
-      /* Global Loading Screen Styles to prevent FOUC */
-      body, html { margin: 0; padding: 0; }
+      /* Global Loading Screen Styles to prevent FOUC.
+         Inlined and theme-aware so the first paint already matches App.css. */
+      :root { color-scheme: light dark; --boot-paper: #f4f2ef; --boot-ink: #9a9e9f; --boot-accent: #b4472c; }
+      @media (prefers-color-scheme: dark) {
+        :root { --boot-paper: #17191a; --boot-ink: #6f7476; --boot-accent: #d06a4a; }
+      }
+      body, html { margin: 0; padding: 0; background-color: var(--boot-paper); }
       .loading-container {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100vh;
+        min-height: 100dvh;
         width: 100vw;
-        background-color: #ffffff;
+        background-color: var(--boot-paper);
       }
       .spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid rgba(138, 99, 210, 0.1);
-        border-left-color: #8a63d2;
+        width: 32px;
+        height: 32px;
+        border: 2px solid transparent;
+        border-left-color: var(--boot-accent);
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-bottom: 20px;
@@ -32,18 +39,23 @@
         100% { transform: rotate(360deg); }
       }
       .loading-text {
-        font-size: 1rem;
-        color: #888;
-        letter-spacing: 3px;
+        font-family: system-ui, sans-serif;
+        font-size: 0.8rem;
+        color: var(--boot-ink);
+        letter-spacing: 0.25em;
         animation: pulse 1.5s ease-in-out infinite;
       }
       @keyframes pulse {
         0%, 100% { opacity: 0.6; }
         50% { opacity: 1; }
       }
+      @media (prefers-reduced-motion: reduce) {
+        .spinner { animation-duration: 2s; }
+        .loading-text { animation: none; }
+      }
     </style>
-    <script type="module" crossorigin src="/assets/index-C-gfWUm9.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-5_CSNMpR.css">
+    <script type="module" crossorigin src="/assets/index-DFa2fdIF.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-B9Z0YRwE.css">
   </head>
   <body>
     <div id="root"></div>

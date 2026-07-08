@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 
-export const BREAKPOINTS = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
+/**
+ * These are measured against the MAIN COLUMN, not the viewport: react-grid-layout is
+ * handed the content width, which is ~368px narrower than the window (240px sidebar
+ * + 2x64px padding). Viewport-sized breakpoints put a 1280px laptop into the 2-column
+ * band and, worse, below THREE_COL_MIN_WIDTH, which silently discards drag-mode edits.
+ */
+export const BREAKPOINTS = { lg: 1200, md: 880, sm: 640, xs: 460, xxs: 0 };
 export const GRID_COLS = { lg: 3, md: 3, sm: 2, xs: 1, xxs: 1 };
 
 /** Narrowest width that still lays out in 3 columns, i.e. matches a saved layout. */

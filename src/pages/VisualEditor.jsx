@@ -3,7 +3,7 @@ import { auth, db, provider } from '../firebase';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { nanoid } from 'nanoid';
-import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt, FaShareSquare } from 'react-icons/fa';
+import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt, FaShareSquare, FaSave, FaPhoneAlt, FaEnvelope } from 'react-icons/fa';
 import { Responsive } from 'react-grid-layout';
 import { getAutoLayout, useContainerWidth, BREAKPOINTS, GRID_COLS, THREE_COL_MIN_WIDTH } from '../grid';
 import { toDirectImageUrl } from '../urls';
@@ -73,6 +73,29 @@ const resizeToDataUrl = (file, maxDim, quality) =>
     img.src = objectUrl;
   });
 
+// The five top-right controls were five copies of the same 4-line block.
+function AuthAction({ label, title, onClick, active, disabled, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+      <div
+        className="login-icon"
+        title={title}
+        onClick={onClick}
+        style={{
+          background: active ? 'var(--accent)' : undefined,
+          borderColor: active ? 'var(--accent)' : undefined,
+          color: active ? 'var(--accent-ink)' : undefined,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.55 : 1,
+        }}
+      >
+        {children}
+      </div>
+      <span className="auth-label">{label}</span>
+    </div>
+  );
+}
+
 export default function VisualEditor({ user }) {
   const [data, setData] = useState(defaultData);
   const [loading, setLoading] = useState(true);
@@ -106,6 +129,7 @@ export default function VisualEditor({ user }) {
   // Close enough to what Firestore counts, and it's the number the user can act on.
   const docBytes = useMemo(() => new Blob([JSON.stringify(data)]).size, [data]);
   const docUsage = docBytes / FIRESTORE_DOC_LIMIT;
+  const budgetLevel = docUsage > 0.9 ? 'over' : docUsage > 0.7 ? 'warn' : '';
 
   const showToast = (msg) => {
     setToast(msg);
@@ -415,39 +439,24 @@ export default function VisualEditor({ user }) {
       {toast && <div className="toast-overlay">{toast}</div>}
       
       {saving && (
-        <div className="loading-container" style={{ position: 'fixed', zIndex: 9999, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(4px)' }}>
+        <div className="loading-container" style={{ position: 'fixed', zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(4px)' }}>
           <div className="spinner"></div>
-          <div className="loading-text" style={{ marginTop: '15px', color: '#333', fontWeight: 'bold', letterSpacing: '1px' }}>資料儲存中，請稍候...</div>
+          <div className="loading-text" style={{ marginTop: '15px' }}>資料儲存中，請稍候...</div>
         </div>
       )}
-      
-      <div className="top-right-auth" style={{ display: 'flex', gap: '15px' }}>
+
+      <div className="top-right-auth" style={{ display: 'flex', gap: '14px' }}>
         {isEditing ? (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <div title={isDragMode ? "關閉排版模式" : "開啟排版模式"} className="login-icon" onClick={() => setIsDragMode(!isDragMode)} style={{ background: isDragMode ? '#4CAF50' : '#fff', color: isDragMode ? '#fff' : '#222' }}><FaArrowsAlt /></div>
-              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>排版</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <div title="複製公開分享連結" className="login-icon" onClick={copyShareLink} style={{ color: '#222' }}><FaShareAlt /></div>
-              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>分享</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <div title="儲存變更" className="login-icon" onClick={saving ? null : saveChanges} style={{ background: saving ? '#f5f5f5' : '#fff', color: saving ? '#ccc' : '#4CAF50', cursor: saving ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease' }}>
-                {saving ? <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px', borderTopColor: '#aaa' }}></div> : <span>💾</span>}
-              </div>
-              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>{saving ? '儲存中...' : '儲存'}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <div title="登出" className="login-icon" onClick={handleLogout} style={{ color: '#222' }}><FaSignOutAlt /></div>
-              <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>登出</span>
-            </div>
+            <AuthAction label="排版" title={isDragMode ? "關閉排版模式" : "開啟排版模式"} onClick={() => setIsDragMode(!isDragMode)} active={isDragMode}><FaArrowsAlt /></AuthAction>
+            <AuthAction label="分享" title="複製公開分享連結" onClick={copyShareLink}><FaShareAlt /></AuthAction>
+            <AuthAction label={saving ? '儲存中' : '儲存'} title="儲存變更" onClick={saving ? undefined : saveChanges} disabled={saving}>
+              {saving ? <div className="spinner" style={{ width: '16px', height: '16px', marginBottom: 0 }} /> : <FaSave />}
+            </AuthAction>
+            <AuthAction label="登出" title="登出" onClick={handleLogout}><FaSignOutAlt /></AuthAction>
           </>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <div title="管理員登入" className="login-icon" onClick={handleLogin}><FaUserCircle size={24} /></div>
-            <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold', letterSpacing: '1px' }}>登入</span>
-          </div>
+          <AuthAction label="登入" title="管理員登入" onClick={handleLogin}><FaUserCircle size={22} /></AuthAction>
         )}
       </div>
 
@@ -469,9 +478,9 @@ export default function VisualEditor({ user }) {
              title={isToolboxOpen ? "收合新增選單" : "展開新增選單"}
              className="icon-btn toolbox-toggle-btn" 
              style={{ 
-               background: isToolboxOpen ? '#fff' : '#8a63d2', 
-               color: isToolboxOpen ? '#8a63d2' : '#fff', 
-               border: isToolboxOpen ? '1px solid #ddd' : 'none'
+               background: isToolboxOpen ? 'var(--surface)' : 'var(--accent)',
+               color: isToolboxOpen ? 'var(--accent)' : 'var(--accent-ink)',
+               border: `1px solid ${isToolboxOpen ? 'var(--rule)' : 'var(--accent)'}`
              }}
              onClick={() => setIsToolboxOpen(!isToolboxOpen)}
           >
@@ -480,7 +489,7 @@ export default function VisualEditor({ user }) {
 
           {/* Toolbox Panel */}
           <div className="toolbox-panel" style={{ alignItems: 'center' }}>
-            <div className="toolbox-label" style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', marginBottom: '8px' }}>新增項目至</div>
+            <div className="toolbox-label">新增項目至</div>
             
             <select
               value={addTargetId}
@@ -522,28 +531,28 @@ export default function VisualEditor({ user }) {
             <input className="inline-input sidebar-name" style={{ marginBottom: '15px' }} value={data.profile.name} onChange={e => handleProfileChange('name', e.target.value)} />
             <textarea 
               className="inline-input" 
-              style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', resize: 'vertical', minHeight: '60px', padding: '8px', lineHeight: '1.4' }} 
-              placeholder="寫一段簡短的自我介紹..." 
+              style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: '32px', resize: 'vertical', minHeight: '72px', padding: '10px', lineHeight: '1.7' }}
+              placeholder="寫一段簡短的自我介紹..."
               value={data.profile.bio || ''} 
               onChange={e => handleProfileChange('bio', e.target.value)} 
             />
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1 className="sidebar-name" style={{ marginBottom: data.profile.bio ? '15px' : '40px' }}>{data.profile.name}</h1>
+            <h1 className="sidebar-name" style={{ marginBottom: data.profile.bio ? '16px' : '40px' }}>{data.profile.name}</h1>
             {data.profile.bio && (
-              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', lineHeight: '1.6', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: '32px', lineHeight: '1.7', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
                 {data.profile.bio}
               </p>
             )}
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#999', letterSpacing: '2px' }}>分類選單</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <span className="toolbox-label" style={{ marginBottom: 0 }}>分類選單</span>
           {isEditing && (
-            <div className="icon-btn" onClick={addSection} title="新增分類" style={{ width: '28px', height: '28px', margin: 0, background: '#8a63d2', color: '#fff', border: 'none' }}>
-              <FaPlus size={12} />
+            <div className="icon-btn" onClick={addSection} title="新增分類" style={{ width: '26px', height: '26px', margin: 0, background: 'var(--accent)', borderColor: 'var(--accent)', color: 'var(--accent-ink)' }}>
+              <FaPlus size={11} />
             </div>
           )}
         </div>
@@ -556,54 +565,47 @@ export default function VisualEditor({ user }) {
           ))}
         </ul>
 
-        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--rule)', fontSize: '0.9rem', color: 'var(--ink-muted)', width: '100%', boxSizing: 'border-box' }}>
           {isEditing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '4px' }} placeholder="聯絡電話" value={data.profile.phone || ''} onChange={e => handleProfileChange('phone', e.target.value)} />
-                <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '4px' }} placeholder="電子郵件" value={data.profile.email || ''} onChange={e => handleProfileChange('email', e.target.value)} />
+                <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '6px 8px' }} placeholder="聯絡電話" value={data.profile.phone || ''} onChange={e => handleProfileChange('phone', e.target.value)} />
+                <input className="inline-input" style={{ fontSize: '0.85rem', margin: 0, padding: '6px 8px' }} placeholder="電子郵件" value={data.profile.email || ''} onChange={e => handleProfileChange('email', e.target.value)} />
               </div>
-              <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              <div style={{ borderTop: '1px solid var(--rule)', paddingTop: '18px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                <div className="budget-row">
                   <span>資料用量</span>
-                  <span style={{ color: docUsage > 0.9 ? '#d9534f' : docUsage > 0.7 ? '#e8a33d' : '#888', fontWeight: 'normal' }}>
+                  <span className={`budget-value ${budgetLevel}`}>
                     {(docBytes / 1048576).toFixed(2)} / 1.00 MB
                   </span>
                 </div>
-                <div style={{ height: '5px', borderRadius: '3px', background: '#eee', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${Math.min(100, docUsage * 100)}%`,
-                    height: '100%',
-                    background: docUsage > 0.9 ? '#d9534f' : docUsage > 0.7 ? '#e8a33d' : '#8a63d2',
-                    transition: 'width 0.3s'
-                  }} />
+                <div className="budget-track">
+                  <div className={`budget-fill ${budgetLevel}`} style={{ width: `${Math.min(100, docUsage * 100)}%` }} />
                 </div>
                 {docUsage > 0.9 && (
-                  <div style={{ fontSize: '0.72rem', color: '#d9534f', lineHeight: 1.4 }}>
-                    快到上限了，再上傳圖片將無法儲存。
-                  </div>
+                  <div className="budget-note">快到上限了，再上傳圖片將無法儲存。</div>
                 )}
               </div>
 
-              <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>網站背景</div>
-                <label className="icon-btn" style={{ width: '100%', height: '36px', borderRadius: '4px', fontSize: '0.8rem', margin: 0, border: '1px dashed #ccc' }}>
+              <div style={{ borderTop: '1px solid var(--rule)', paddingTop: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div className="toolbox-label" style={{ marginBottom: 0 }}>網站背景</div>
+                <label className="icon-btn" style={{ width: '100%', height: '38px', borderRadius: 'var(--radius)', fontSize: '0.8rem', margin: 0, border: '1px dashed var(--rule)' }}>
                   <FaImage style={{ marginRight: '5px' }} /> {data.profile.bgImageUrl ? "更換背景圖片" : "上傳背景圖片"}
                   {/* background sits behind opacity ~0.1, so detail is invisible anyway */}
                   <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => pickImage(e, 1280, 0.5, url => handleProfileChange('bgImageUrl', url))} />
                 </label>
                 {data.profile.bgImageUrl && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', width: '100%' }}>
-                    <span style={{ whiteSpace: 'nowrap' }}>透明度</span>
-                    <input type="range" min="0.05" max="1" step="0.05" value={data.profile.bgOpacity ?? 0.1} onChange={e => handleProfileChange('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1, minWidth: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap', color: 'var(--ink-muted)' }}>透明度</span>
+                    <input type="range" min="0.05" max="1" step="0.05" value={data.profile.bgOpacity ?? 0.1} onChange={e => handleProfileChange('bgOpacity', parseFloat(e.target.value))} style={{ flex: 1, minWidth: 0, accentColor: 'var(--accent)' }} />
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-              {data.profile.phone && <div>📞 {data.profile.phone}</div>}
-              {data.profile.email && <div>✉️ <a href={`mailto:${data.profile.email}`} style={{ textDecoration: 'underline' }}>{data.profile.email}</a></div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.82rem', color: 'var(--ink-muted)' }}>
+              {data.profile.phone && <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}><FaPhoneAlt size={11} style={{ color: 'var(--ink-faint)', flexShrink: 0 }} />{data.profile.phone}</div>}
+              {data.profile.email && <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}><FaEnvelope size={11} style={{ color: 'var(--ink-faint)', flexShrink: 0 }} /><a href={`mailto:${data.profile.email}`} style={{ borderBottom: '1px solid var(--rule)' }}>{data.profile.email}</a></div>}
             </div>
           )}
         </div>
@@ -638,10 +640,10 @@ export default function VisualEditor({ user }) {
                   >↓</button>
                   <button
                     className="icon-btn"
-                    style={{ width: '28px', height: '28px', color: '#d9534f' }}
+                    style={{ width: '28px', height: '28px', color: 'var(--danger)' }}
                     onClick={() => removeSection(section)}
                     title="刪除分類"
-                  ><FaTrash size={12} /></button>
+                  ><FaTrash size={11} /></button>
                 </div>
               </div>
             ) : (
@@ -671,7 +673,7 @@ export default function VisualEditor({ user }) {
                     {/* Drag Handle & Size Selector (Editor Only) */}
                     {isEditing && isDragMode && (
                       <div className="size-selector drag-handle" style={{ cursor: 'grab', display: 'flex', alignItems: 'center' }}>
-                        <div style={{ padding: '0 8px', color: '#ccc' }}><FaGripVertical /></div>
+                        <div style={{ padding: '0 8px', color: 'var(--ink-faint)' }}><FaGripVertical /></div>
                         <button className={`size-btn ${itemSize === 'small' ? 'active' : ''}`} onMouseDown={e => e.stopPropagation()} onClick={() => {
                           handleItemChange(section.id, item.id, 'size', 'small');
                           if(item.gridLayout) handleItemChange(section.id, item.id, 'gridLayout', {...item.gridLayout, w: 1});
@@ -690,12 +692,12 @@ export default function VisualEditor({ user }) {
                     {/* Image or Link Block (Both have images) */}
                     {(itemType === 'image' || itemType === 'link') && (
                       <div className="card-image-wrapper">
-                        {item.imageUrl ? <img src={toDirectImageUrl(item.imageUrl)} alt={item.title} className="card-image" /> : <div className="card-image" style={{ background: '#eee' }} />}
+                        {item.imageUrl ? <img src={toDirectImageUrl(item.imageUrl)} alt={item.title} className="card-image" /> : <div className="card-image" style={{ background: 'var(--surface-sunk)' }} />}
                         {isEditing && (
                           <div className="edit-overlay">
                             {/* Artwork keeps 1200px. Measured on a 1200x800 photo: old JPEG@0.7 = 115KB,
                                 WebP@0.75 = 85KB (-27%) at higher visual quality. Pushing q past ~0.78
-                                gives the bytes straight back — WebP@0.85 was 126KB, worse than the JPEG. */}
+                                gives the bytes straight back: WebP@0.85 was 126KB, worse than the JPEG. */}
                             <label className="icon-btn" title="上傳圖片檔"><FaImage size={14} /><input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => pickImage(e, 1200, 0.75, url => handleItemChange(section.id, item.id, 'imageUrl', url))} /></label>
                             <div className="icon-btn" title="改用圖片網址（不佔用量）" onClick={() => pasteImageUrl(item.imageUrl, url => handleItemChange(section.id, item.id, 'imageUrl', url))}><FaLink size={14} /></div>
                             {data.sections.length > 1 && (
@@ -770,10 +772,10 @@ export default function VisualEditor({ user }) {
                       {isEditing ? (
                         <>
                           {itemType === 'link' && (
-                             <input className="inline-input" style={{ color: '#8a63d2', fontWeight: 'bold' }} value={item.url || ''} onChange={e => handleItemChange(section.id, item.id, 'url', e.target.value)} placeholder="輸入連結網址 (https://...)" />
+                             <input className="inline-input" style={{ color: 'var(--accent)', fontSize: '0.8rem' }} value={item.url || ''} onChange={e => handleItemChange(section.id, item.id, 'url', e.target.value)} placeholder="輸入連結網址 (https://...)" />
                           )}
                           <input className="inline-input card-title" style={{ fontWeight: 'bold', fontSize: '1.1rem' }} value={item.title} onChange={e => handleItemChange(section.id, item.id, 'title', e.target.value)} placeholder="輸入標題或介紹..." />
-                          <input className="inline-input card-date" style={{ fontSize: '0.8rem', color: '#888' }} value={item.date} onChange={e => handleItemChange(section.id, item.id, 'date', e.target.value)} />
+                          <input className="inline-input card-date" style={{ fontSize: '0.78rem', color: 'var(--ink-faint)' }} value={item.date} onChange={e => handleItemChange(section.id, item.id, 'date', e.target.value)} />
                         </>
                       ) : (
                         <>
@@ -785,11 +787,11 @@ export default function VisualEditor({ user }) {
 
                     {/* Show title and date for text block at the bottom */}
                     {itemType === 'text' && (
-                       <div style={{ padding: '0 25px 25px 25px', display: 'flex', flexDirection: 'column' }}>
+                       <div style={{ padding: '0 32px 32px 32px', display: 'flex', flexDirection: 'column' }}>
                          {isEditing ? (
                           <>
                             <input className="inline-input card-title" style={{ fontWeight: 'bold', fontSize: '1.1rem' }} value={item.title} onChange={e => handleItemChange(section.id, item.id, 'title', e.target.value)} placeholder="輸入文章標題..." />
-                            <input className="inline-input card-date" style={{ fontSize: '0.8rem', color: '#888' }} value={item.date} onChange={e => handleItemChange(section.id, item.id, 'date', e.target.value)} />
+                            <input className="inline-input card-date" style={{ fontSize: '0.78rem', color: 'var(--ink-faint)' }} value={item.date} onChange={e => handleItemChange(section.id, item.id, 'date', e.target.value)} />
                           </>
                          ) : (
                           <>
@@ -804,7 +806,7 @@ export default function VisualEditor({ user }) {
               })}
             </Responsive>
             {section.items.length === 0 && (
-              <div style={{ color: '#aaa', fontStyle: 'italic', marginTop: '20px' }}>此分類尚無作品，請從右側選單新增。</div>
+              <div className="section-empty">此分類尚無作品，請從右側選單新增。</div>
             )}
           </section>
         ))}

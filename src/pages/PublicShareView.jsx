@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { FaPhoneAlt, FaEnvelope } from 'react-icons/fa';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Responsive } from 'react-grid-layout';
@@ -60,7 +61,7 @@ export default function PublicShareView() {
     return (
       <div style={{ textAlign: 'center', marginTop: '100px' }}>
         <h2>{error}</h2>
-        <Link to="/" style={{ color: 'var(--primary-color)', textDecoration: 'underline', marginTop: '20px', display: 'inline-block' }}>回首頁</Link>
+        <Link to="/" style={{ color: 'var(--accent)', borderBottom: '1px solid currentColor', marginTop: '20px', display: 'inline-block' }}>回首頁</Link>
       </div>
     );
   }
@@ -84,7 +85,7 @@ export default function PublicShareView() {
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <h1 className="sidebar-name" style={{ marginBottom: profile.bio ? '15px' : '40px' }}>{profile.name}</h1>
           {profile.bio && (
-            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '30px', lineHeight: '1.6', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', marginBottom: '32px', lineHeight: '1.7', whiteSpace: 'pre-wrap', textAlign: 'left' }}>
               {profile.bio}
             </p>
           )}
@@ -98,10 +99,10 @@ export default function PublicShareView() {
           ))}
         </ul>
 
-        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border-color)', fontSize: '0.9rem', color: '#666' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-            {profile.phone && <div>📞 {profile.phone}</div>}
-            {profile.email && <div>✉️ <a href={`mailto:${profile.email}`} style={{ textDecoration: 'underline' }}>{profile.email}</a></div>}
+        <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--rule)', fontSize: '0.9rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.82rem', color: 'var(--ink-muted)' }}>
+            {profile.phone && <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}><FaPhoneAlt size={11} style={{ color: 'var(--ink-faint)', flexShrink: 0 }} />{profile.phone}</div>}
+            {profile.email && <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}><FaEnvelope size={11} style={{ color: 'var(--ink-faint)', flexShrink: 0 }} /><a href={`mailto:${profile.email}`} style={{ borderBottom: '1px solid var(--rule)' }}>{profile.email}</a></div>}
           </div>
         </div>
       </aside>
@@ -141,7 +142,7 @@ export default function PublicShareView() {
                         {item.imageUrl ? (
                           <img src={toDirectImageUrl(item.imageUrl)} alt={item.title} className="card-image" />
                         ) : (
-                          <div className="card-image" style={{ background: '#eee' }} />
+                          <div className="card-image" style={{ background: 'var(--surface-sunk)' }} />
                         )}
                       </div>
                     )}
@@ -156,13 +157,13 @@ export default function PublicShareView() {
                     <div className="card-content-area" style={{ display: itemType === 'text' ? 'none' : 'flex' }}>
                       <h3 className="card-title">
                         {item.title}
-                        {itemType === 'link' && <span style={{ fontSize: '0.8rem', color: '#8a63d2', marginLeft: '8px' }}>↗</span>}
+                        {href && <span style={{ fontSize: '0.75rem', color: 'var(--accent)', marginLeft: '8px', verticalAlign: 'middle' }} aria-hidden="true">↗</span>}
                       </h3>
                       <span className="card-date">{item.date}</span>
                     </div>
 
                     {itemType === 'text' && (
-                      <div style={{ padding: '0 25px 25px 25px', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ padding: '0 32px 32px 32px', display: 'flex', flexDirection: 'column' }}>
                         <h3 className="card-title">{item.title}</h3>
                         <span className="card-date">{item.date}</span>
                       </div>
@@ -172,7 +173,7 @@ export default function PublicShareView() {
               })}
             </Responsive>
             {section.items.length === 0 && (
-              <div style={{ color: '#aaa', fontStyle: 'italic', marginTop: '20px' }}>尚無作品。</div>
+              <div className="section-empty">尚無作品。</div>
             )}
           </section>
         ))}
