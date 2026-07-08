@@ -31,6 +31,16 @@ export function toDirectImageUrl(input) {
 }
 
 /**
+ * Wrap a URL for use in a CSS `url(...)` value. Quote it and escape the characters
+ * that would otherwise terminate the string and let a pasted URL inject its own
+ * declarations. Safe for `data:` URLs, whose base64 alphabet needs no escaping.
+ */
+export function cssUrl(input) {
+  if (!input) return 'none';
+  return `url("${String(input).replace(/["\\]/g, '\\$&')}")`;
+}
+
+/**
  * A link card's destination is rendered as <a href> on a page shared with strangers.
  * React escapes the attribute but does not stop `javascript:` from executing on click,
  * so restrict the scheme. Returns '' for anything not safe to navigate to.

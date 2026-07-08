@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid';
 import { FaUserCircle, FaSignOutAlt, FaShareAlt, FaPlus, FaTrash, FaImage, FaGripVertical, FaAlignLeft, FaLink, FaChevronRight, FaArrowsAlt, FaShareSquare, FaSave, FaPhoneAlt, FaEnvelope } from 'react-icons/fa';
 import { Responsive } from 'react-grid-layout';
 import { getAutoLayout, useContainerWidth, BREAKPOINTS, GRID_COLS, THREE_COL_MIN_WIDTH } from '../grid';
-import { toDirectImageUrl } from '../urls';
+import { toDirectImageUrl, cssUrl } from '../urls';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -430,7 +430,7 @@ export default function VisualEditor({ user }) {
       {data.profile.bgImageUrl && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1,
-          backgroundImage: `url(${data.profile.bgImageUrl})`,
+          backgroundImage: cssUrl(toDirectImageUrl(data.profile.bgImageUrl)),
           backgroundSize: 'cover', backgroundPosition: 'center',
           opacity: data.profile.bgOpacity ?? 0.1
         }} />
@@ -589,11 +589,21 @@ export default function VisualEditor({ user }) {
 
               <div style={{ borderTop: '1px solid var(--rule)', paddingTop: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div className="toolbox-label" style={{ marginBottom: 0 }}>網站背景</div>
-                <label className="icon-btn" style={{ width: '100%', height: '38px', borderRadius: 'var(--radius)', fontSize: '0.8rem', margin: 0, border: '1px dashed var(--rule)' }}>
-                  <FaImage style={{ marginRight: '5px' }} /> {data.profile.bgImageUrl ? "更換背景圖片" : "上傳背景圖片"}
-                  {/* background sits behind opacity ~0.1, so detail is invisible anyway */}
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => pickImage(e, 1280, 0.5, url => handleProfileChange('bgImageUrl', url))} />
-                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <label className="icon-btn" style={{ flex: 1, height: '38px', borderRadius: 'var(--radius)', fontSize: '0.8rem', margin: 0, border: '1px dashed var(--rule)' }} title="上傳背景圖片檔">
+                    <FaImage style={{ marginRight: '5px' }} /> {data.profile.bgImageUrl ? "更換背景" : "上傳背景"}
+                    {/* background sits behind opacity ~0.1, so detail is invisible anyway */}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => pickImage(e, 1280, 0.5, url => handleProfileChange('bgImageUrl', url))} />
+                  </label>
+                  <div
+                    className="icon-btn"
+                    title="改用背景圖片網址（不佔用量；留空即可移除背景）"
+                    onClick={() => pasteImageUrl(data.profile.bgImageUrl, url => handleProfileChange('bgImageUrl', url))}
+                    style={{ width: '38px', height: '38px', margin: 0, flexShrink: 0, borderRadius: 'var(--radius)' }}
+                  >
+                    <FaLink size={13} />
+                  </div>
+                </div>
                 {data.profile.bgImageUrl && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', width: '100%' }}>
                     <span style={{ whiteSpace: 'nowrap', color: 'var(--ink-muted)' }}>透明度</span>

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toDirectImageUrl, safeHref } from './urls.js';
+import { toDirectImageUrl, safeHref, cssUrl } from './urls.js';
 
 const DRIVE_ID = '1A2b3C4d5E6f7G8h9IjKlMnOpQrStUv';
 const thumb = `https://drive.google.com/thumbnail?id=${DRIVE_ID}&sz=w1600`;
@@ -37,6 +37,19 @@ test('safeHref blocks script-bearing schemes', () => {
   assert.equal(safeHref('  javascript:alert(1)  '), '');
   assert.equal(safeHref('data:text/html,<script>alert(1)</script>'), '');
   assert.equal(safeHref('vbscript:msgbox'), '');
+});
+
+test('cssUrl cannot be broken out of', () => {
+  assert.equal(cssUrl('https://a.com/b.jpg'), 'url("https://a.com/b.jpg")');
+  assert.equal(cssUrl('data:image/webp;base64,AA+/='), 'url("data:image/webp;base64,AA+/=")');
+  // a pasted URL must not be able to close the string and add its own declarations
+  assert.equal(
+    cssUrl('x.jpg"); background: red; content: ("'),
+    'url("x.jpg\\"); background: red; content: (\\"")'
+  );
+  assert.equal(cssUrl('a\\b.jpg'), 'url("a\\\\b.jpg")');
+  assert.equal(cssUrl(''), 'none');
+  assert.equal(cssUrl(undefined), 'none');
 });
 
 test('safeHref keeps ordinary destinations', () => {

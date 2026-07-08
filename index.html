@@ -15,7 +15,12 @@
       @media (prefers-color-scheme: dark) {
         :root { --boot-paper: #17191a; --boot-ink: #6f7476; --boot-accent: #d06a4a; }
       }
-      body, html { margin: 0; padding: 0; background-color: var(--boot-paper); }
+      /* Background goes on body ONLY, never html. The app paints its user background
+         image in a z-index:-1 layer; that layer sits above the canvas but below any
+         real box background. If html carries a background it owns the canvas, body
+         then paints its own opaque box, and the user's background image vanishes. */
+      body, html { margin: 0; padding: 0; }
+      body { background-color: var(--boot-paper); }
       .loading-container {
         display: flex;
         flex-direction: column;

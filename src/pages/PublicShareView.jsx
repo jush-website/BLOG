@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Responsive } from 'react-grid-layout';
 import { getAutoLayout, useContainerWidth, BREAKPOINTS, GRID_COLS } from '../grid';
-import { toDirectImageUrl, safeHref } from '../urls';
+import { toDirectImageUrl, safeHref, cssUrl } from '../urls';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -75,7 +75,7 @@ export default function PublicShareView() {
       {profile.bgImageUrl && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: -1,
-          backgroundImage: `url(${profile.bgImageUrl})`,
+          backgroundImage: cssUrl(toDirectImageUrl(profile.bgImageUrl)),
           backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
           opacity: profile.bgOpacity ?? 0.1
         }} />
