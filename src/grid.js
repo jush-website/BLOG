@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 
 /**
- * These are measured against the MAIN COLUMN, not the viewport: react-grid-layout is
- * handed the content width, which is ~368px narrower than the window (240px sidebar
- * + 2x64px padding). Viewport-sized breakpoints put a 1280px laptop into the 2-column
- * band and, worse, below THREE_COL_MIN_WIDTH, which silently discards drag-mode edits.
+ * Breakpoints are measured against the MAIN COLUMN, not the viewport: react-grid-layout
+ * is handed the content width, which is narrower than the window by the chrome around it.
+ *
+ * Column bands are chosen so a card is never cramped:
+ *   main >= 1040 -> 3 columns   (>=305px cards)
+ *   660..1040    -> 2 columns   (wide cards; where most laptops land)
+ *   < 660        -> 1 column
+ * Three narrow columns in a ~1000px container gave ~264px cards; a 2-column mid band
+ * roughly doubles that. The canonical arrangement is the 3-column (lg) layout; RGL
+ * reflows it down deterministically for the narrower bands.
  */
-export const BREAKPOINTS = { lg: 1200, md: 880, sm: 640, xs: 460, xxs: 0 };
-export const GRID_COLS = { lg: 3, md: 3, sm: 2, xs: 1, xxs: 1 };
+export const BREAKPOINTS = { lg: 1040, md: 660, sm: 400, xs: 200, xxs: 0 };
+export const GRID_COLS = { lg: 3, md: 2, sm: 1, xs: 1, xxs: 1 };
 
-/** Narrowest width that still lays out in 3 columns, i.e. matches a saved layout. */
-export const THREE_COL_MIN_WIDTH = BREAKPOINTS.md;
+/** Narrowest content width that still lays out in 3 columns (the canonical arrangement). */
+export const THREE_COL_MIN_WIDTH = BREAKPOINTS.lg;
 
 const COLS = GRID_COLS.lg;
 const widthFor = (size) => (size === 'large' ? 3 : size === 'medium' ? 2 : 1);

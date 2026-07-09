@@ -115,12 +115,12 @@ a { text-decoration: none; color: inherit; }
 
 /* Sidebar */
 .sidebar {
-  width: 240px;
+  width: 210px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 48px 32px;
+  padding: 44px 28px;
   border-right: 1px solid var(--rule);
   display: flex;
   flex-direction: column;
@@ -179,7 +179,7 @@ a { text-decoration: none; color: inherit; }
 /* Main Content */
 .main-content {
   flex-grow: 1;
-  padding: 96px 64px;
+  padding: 72px 40px;
   overflow-y: auto;
 }
 
@@ -588,15 +588,18 @@ a { text-decoration: none; color: inherit; }
   margin-top: 24px;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive — stack the sidebar as a top bar below 1080px.
+   The old 768px cut let the sidebar reappear on tablets (769-1024) and squeeze the
+   grid so hard that an iPad portrait showed FEWER columns than a phone landscape.
+   Stacking earlier gives tablets the full width and a comfortable column count. */
+@media (max-width: 1080px) {
   .app-wrapper { flex-direction: column; }
 
   .sidebar {
     width: 100%;
     height: auto;
     position: relative;
-    padding: 40px 24px;
+    padding: 36px 28px;
     border-right: none;
     border-bottom: 1px solid var(--rule);
     align-items: center;
@@ -614,8 +617,8 @@ a { text-decoration: none; color: inherit; }
   }
   .nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
 
-  .main-content { padding: 48px 24px 120px 24px; }
-  .section { margin-bottom: 80px; }
+  .main-content { padding: 56px 32px 120px 32px; }
+  .section { margin-bottom: 88px; }
 
   .toolbox-wrapper {
     right: 0 !important;
@@ -659,6 +662,52 @@ a { text-decoration: none; color: inherit; }
     writing-mode: horizontal-tb !important;
     margin-right: 5px;
     margin-bottom: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 44px 20px 110px 20px; }
+  .sidebar { padding: 32px 20px; }
+  .section { margin-bottom: 72px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion. An art portfolio: motion should present the work, not perform.
+   Everything here animates only opacity/filter/transform, is scroll-driven
+   (no scroll listeners), and collapses under prefers-reduced-motion.
+--------------------------------------------------------------------------- */
+
+/* Card hover: lift the image and warm the title. Elevation already handled on .card. */
+.card:hover .card-title { color: var(--accent); }
+.card-title { transition: color 0.25s ease; }
+
+/* Scroll reveal: each card "develops" from soft to sharp as it enters the viewport,
+   like a print coming up in a tray. Motivated: sequences the work on scroll.
+   opacity + blur only — a transform here would fight react-grid-layout's inline
+   positioning transform on the same element. Native scroll-driven animation, so no
+   JS and no scroll listener; browsers without support just show the card (no reveal). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .card {
+      animation: card-develop linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+    @keyframes card-develop {
+      from { opacity: 0; filter: blur(5px); }
+      to   { opacity: 1; filter: blur(0); }
+    }
+
+    /* Section headings rise into place (not a grid item, so transform is safe). */
+    .section-title {
+      animation: title-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+    @keyframes title-rise {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
   }
 }
 

@@ -133,9 +133,21 @@ export default function VisualEditor({ user }) {
   const budgetLevel = docUsage > 0.9 ? 'over' : docUsage > 0.7 ? 'warn' : '';
   const overBudget = docBytes > FIRESTORE_DOC_LIMIT;
 
+  // Dragging rearranges the canonical 3-column layout; only allow it when 3 columns
+  // are actually shown, otherwise a drag reflows a 2-col view and handleLayoutChange
+  // discards it (a silent no-op the user can't see). The toggle warns instead.
+  const atCanonicalWidth = mainWidth >= THREE_COL_MIN_WIDTH;
+  const canDrag = !!user && isDragMode && atCanonicalWidth;
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
+  };
+
+  const toggleDragMode = () => {
+    const next = !isDragMode;
+    setIsDragMode(next);
+    if (next && !atCanonicalWidth) showToast('排版微調需要較寬的視窗（三欄檢視），請放大視窗或使用電腦。');
   };
 
   useEffect(() => {
@@ -231,10 +243,10 @@ export default function VisualEditor({ user }) {
 
   const handleLayoutChange = (sectionId, layout) => {
     // Only persist a deliberate rearrangement. react-grid-layout also fires this on
-    // mount and on every breakpoint reflow — saving those marks the doc dirty on page
-    // load and overwrites the 3-col layout with the narrow-screen 1-col one.
-    // 996 = the `md` breakpoint; md and lg both have 3 cols, so either is safe to save.
-    if (!isDragMode || mainWidth < THREE_COL_MIN_WIDTH) return;
+    // mount and on every breakpoint reflow — saving those would mark the doc dirty on
+    // page load and overwrite the canonical 3-col layout with a reflowed 2-col one.
+    // canDrag already requires the canonical (3-col) width, so this is a belt-and-braces guard.
+    if (!canDrag) return;
 
     updateData(prev => ({
       ...prev,
@@ -426,7 +438,6 @@ export default function VisualEditor({ user }) {
   }
 
   const isEditing = !!user;
-  const canDrag = isEditing && isDragMode;
 
   return (
     <div className="app-wrapper">
@@ -451,7 +462,7 @@ export default function VisualEditor({ user }) {
       <div className="top-right-auth" style={{ display: 'flex', gap: '14px' }}>
         {isEditing ? (
           <>
-            <AuthAction label="排版" title={isDragMode ? "關閉排版模式" : "開啟排版模式"} onClick={() => setIsDragMode(!isDragMode)} active={isDragMode}><FaArrowsAlt /></AuthAction>
+            <AuthAction label="排版" title={isDragMode ? "關閉排版模式" : "開啟排版模式"} onClick={toggleDragMode} active={isDragMode}><FaArrowsAlt /></AuthAction>
             <AuthAction label="分享" title="複製公開分享連結" onClick={copyShareLink}><FaShareAlt /></AuthAction>
             {/* An over-limit save is refused. Say so on the button itself: a toast that
                 lasts 2.5s is easy to miss, and the symptom (edits vanish on reload)
