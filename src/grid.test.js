@@ -5,9 +5,25 @@ import { getAutoLayout } from './grid.js';
 const overlaps = (a, b) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
-test('saved layouts are returned untouched', () => {
+test('saved layouts keep their geometry', () => {
   const saved = { i: 'a', x: 1, y: 4, w: 2, h: 2 };
   assert.deepEqual(getAutoLayout([{ id: 'a', gridLayout: saved }]), [saved]);
+});
+
+test('stored drag/resize flags are stripped, not passed to react-grid-layout', () => {
+  // What an older build wrote into Firestore. `isDraggable: true` here overrides
+  // `isDraggable={false}` on the public page, letting visitors drag the cards and
+  // (because react-draggable preventDefaults touchstart) breaking taps on mobile.
+  const poisoned = {
+    i: 'a', x: 1, y: 4, w: 2, h: 2,
+    static: false, isDraggable: true, isResizable: true, moved: false,
+  };
+  const [out] = getAutoLayout([{ id: 'a', gridLayout: poisoned }]);
+
+  assert.deepEqual(out, { i: 'a', x: 1, y: 4, w: 2, h: 2 });
+  for (const flag of ['static', 'isDraggable', 'isResizable', 'moved']) {
+    assert.ok(!(flag in out), `${flag} must not reach react-grid-layout`);
+  }
 });
 
 test('a new item never lands on top of a positioned one', () => {

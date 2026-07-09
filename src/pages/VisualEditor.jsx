@@ -426,6 +426,7 @@ export default function VisualEditor({ user }) {
   }
 
   const isEditing = !!user;
+  const canDrag = isEditing && isDragMode;
 
   return (
     <div className="app-wrapper">
@@ -671,19 +672,21 @@ export default function VisualEditor({ user }) {
               <h2 className="section-title">{section.title}</h2>
             )}
 
+            {/* react-grid-layout v2 moved these off the top level: `isDraggable`,
+                `isResizable` and `draggableHandle` props are silently ignored now.
+                They live in dragConfig/resizeConfig, and both default to enabled.
+                `static` also pins the item so the compactor cannot reflow a saved layout. */}
             <Responsive
               className="layout"
               width={mainWidth || 1200}
-              layouts={{ lg: getAutoLayout(section.items).map(l => ({ ...l, static: !(isEditing && isDragMode), isDraggable: !!(isEditing && isDragMode), isResizable: !!(isEditing && isDragMode) })) }}
+              layouts={{ lg: getAutoLayout(section.items).map(l => ({ ...l, static: !canDrag })) }}
               breakpoints={BREAKPOINTS}
               cols={GRID_COLS}
               rowHeight={150}
               margin={[30, 40]}
               onLayoutChange={(currentLayout) => handleLayoutChange(section.id, currentLayout)}
-              isDraggable={!!(isEditing && isDragMode)}
-              isResizable={!!(isEditing && isDragMode)}
-              useCSSTransforms={true}
-              draggableHandle=".drag-handle"
+              dragConfig={{ enabled: canDrag, handle: '.drag-handle' }}
+              resizeConfig={{ enabled: canDrag }}
             >
               {section.items.map(item => {
                 const itemSize = item.size || 'small';

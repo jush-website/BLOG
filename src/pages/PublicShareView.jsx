@@ -112,17 +112,23 @@ export default function PublicShareView() {
           <section key={section.id} id={section.id} className="section">
             <h2 className="section-title">{section.title}</h2>
 
+            {/* This is a read-only page. In react-grid-layout v2 the top-level
+                `isDraggable`/`isResizable` props are ignored and both default to
+                ENABLED, so they must be turned off through drag/resizeConfig.
+                Without this, visitors could drag and resize the cards, and because
+                react-draggable preventDefaults touchstart, tapping a link card on a
+                phone never produced a click. `static` also stops the compactor from
+                reflowing the layout the owner saved. */}
             <Responsive
               className="layout"
               width={mainWidth || 1200}
-              layouts={{ lg: getAutoLayout(section.items) }}
+              layouts={{ lg: getAutoLayout(section.items).map(l => ({ ...l, static: true })) }}
               breakpoints={BREAKPOINTS}
               cols={GRID_COLS}
               rowHeight={150}
               margin={[30, 40]}
-              isDraggable={false}
-              isResizable={false}
-              useCSSTransforms={true}
+              dragConfig={{ enabled: false }}
+              resizeConfig={{ enabled: false }}
             >
               {section.items.map(item => {
                 const itemType = item.type || 'image';

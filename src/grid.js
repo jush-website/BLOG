@@ -16,6 +16,20 @@ const COLS = GRID_COLS.lg;
 const widthFor = (size) => (size === 'large' ? 3 : size === 'medium' ? 2 : 1);
 
 /**
+ * Keep only geometry from a stored layout.
+ *
+ * An earlier version of the editor persisted react-grid-layout's whole layout item,
+ * flags included. react-grid-layout resolves dragging as
+ *   `typeof l.isDraggable === "boolean" ? l.isDraggable : !l.static && isDraggable`
+ * so a stored `isDraggable: true` OVERRIDES `isDraggable={false}` on the public page:
+ * visitors could drag the cards, and because react-draggable preventDefaults
+ * touchstart, a tap on a link card never became a click on mobile.
+ *
+ * Sanitising on read heals those documents the moment they render. No migration.
+ */
+const geometryOnly = ({ i, x, y, w, h }) => ({ i, x, y, w, h });
+
+/**
  * Layout for a section's items. Items with a saved gridLayout keep it;
  * the rest are flowed left-to-right *below* everything already placed,
  * so a newly added card never lands on top of an existing one.
@@ -28,7 +42,7 @@ export function getAutoLayout(items) {
   );
 
   return items.map((item) => {
-    if (item.gridLayout) return item.gridLayout;
+    if (item.gridLayout) return geometryOnly(item.gridLayout);
 
     const w = widthFor(item.size);
     if (x + w > COLS) {
